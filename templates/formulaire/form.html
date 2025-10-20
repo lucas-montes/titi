@@ -1,0 +1,167 @@
+{% extends "base/base.html" %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+{% endblock extra_head %}
+
+{% block inner_body %}
+<div class="auth-main">
+    <div class="auth-wrapper v2">
+        <div class="auth-form">
+            <a href="/" class="logo">
+                <img src="https://ik.imagekit.io/smartlinker/images/logo-dark.svg" alt="image"
+                    class="img-fluid brand-logo">
+            </a>
+            <form hx-post="" hx-target="this" hx-swap="outerHTML" class="card">
+
+                <div class="card-body">
+                    <div class="row">
+                        <div class="d-flex justify-content-center">
+                            <div class="auth-header">
+                                <h2 class="text-secondary"><b>Bienvenue sur Smartlinker</b></h2>
+                            </div>
+                        </div>
+                        <h5 class="mb-3">A. Dites-nous en plus sur vous:</h5>
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Nom:</label>
+                                    <input maxlength="255" type="text" name="name" required class="form-control">
+                                    <small class="form-text text-muted">Nom complet</small>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Email:</label>
+                                    <input type="email" name="email" required class="form-control">
+                                    <small class="form-text text-muted">Email professionnel</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Linkedin:</label>
+                                    <input required type="url" name="linkedin" class="form-control">
+                                    <small class="form-text text-muted">Profil LinkedIn </small>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Domaine expertise:</label>
+                                    <select class="form-select" name="expertise" id="expertise">
+                                    </select>
+                                    <small class="form-text text-muted">Domaine d'expertise</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-lg-12">
+                                <div class="mb-3">
+                                    <label class="form-label">Lien vers votre agenda:</label>
+                                    <input required type="url" name="appointment_link" class="form-control">
+                                    <small class="form-text text-muted">Agenda en ligne (Ex: calendly, google,
+                                        etc...)</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+                        <h5 class="mb-3">B.Parlez-nous de votre entreprise:</h5>
+                        <div class="row">
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Entreprise:</label>
+                                    <input maxlength="255" type="text" name="company_name" required
+                                        class="form-control">
+                                    <small class="form-text text-muted">Nom de l’entreprise </small>
+                                </div>
+                            </div>
+                            <div class="col-lg-6">
+                                <div class="mb-3">
+                                    <label class="form-label">Lien:</label>
+                                    <input type="url" name="company_domain" required class="form-control">
+                                    <small class="form-text text-muted"> Site web de votre entreprise</small>
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+                        <h5 class="mb-3">C. Votre demande:</h5>
+                        <div class="mb-3">
+                            <label class="form-label">Nature de la demande</label>
+                            <select class="form-select" name="category" id="category">
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Décrivez votre demande plus en detail</label>
+                            <textarea minlength="10" name="proposal" required class="form-control"></textarea>
+                        </div>
+
+                    </div>
+                    <div class="cf-turnstile" data-sitekey="{{ captcha_token }}" data-theme="light"></div>
+                    <input type="hidden" name="csrf_token" value="{{csrf_token}}">
+                    <div class="d-grid mt-4">
+                        <button class="btn btn-secondary p-2">Envoyer</button>
+                    </div>
+                </div>
+
+            </form>
+        </div>
+        <div class="auth-sidecontent">
+            <div class="p-3 px-lg-5 text-center">
+                <div id="carouselExampleIndicators" class="carousel slide carousel-dark" data-bs-ride="carousel">
+                    <div class="carousel-inner">
+                        <div class="carousel-item">
+                            <h1><b>Un accès direct à vos futurs clients.</b></h1>
+                            <p class="f-12 mt-4">Présentez votre expertise pour attirer des opportunités qualifiées.
+
+                            </p>
+                        </div>
+                        <div class="carousel-item">
+                            <h1><b>Optimisez votre prospection commerciale.</b></h1>
+                            <p class="f-12 mt-4">Un formulaire structuré pour mettre en avant votre valeur ajoutée.</p>
+                        </div>
+                        <div class="carousel-item active">
+                            <h1><b>Les meilleurs prospects viennent à vous</b></h1>
+                            <p class="f-12 mt-4">Avec Smartlinker, démarquez-vous dès le premier contact.</p>
+                        </div>
+                    </div>
+                    <div class="carousel-indicators position-relative">
+                        <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="0" class=""
+                            aria-label="Slide 1">
+                        </button>
+                        <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="1"
+                            aria-label="Slide 2" class="">
+                        </button>
+                        <button type="button" data-bs-target="#carouselExampleIndicators" data-bs-slide-to="2"
+                            aria-label="Slide 3" class="active" aria-current="true">
+                        </button>
+                    </div>
+                </div>
+                <img src="https://ik.imagekit.io/smartlinker/images/login2.svg" alt="images"
+                    class="img-fluid mt-3 w-75">
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock inner_body %}
+
+{% block scripts %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"
+    integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+{% call super() %}
+
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" defer></script>
+<script>
+    $("#expertise").select2({
+        tags: true, theme: "classic"
+    });
+    $("#category").select2({
+        tags: true, theme: "classic"
+    });
+
+</script>
+{% endblock scripts %}

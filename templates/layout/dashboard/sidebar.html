@@ -1,0 +1,83 @@
+<nav class="pc-sidebar">
+    <div class="navbar-wrapper">
+        <div class="m-header">
+            <a href="/home" class="b-brand text-primary">
+                <img class="logo logo-lg" src="https://ik.imagekit.io/smartlinker/images/logo-dark.svg" alt="logo">
+            </a>
+        </div>
+        <div class="navbar-content">
+            <ul class="pc-navbar">
+                <!-- Use this as the title and avoid nesting the menu so much -->
+                <li class="pc-item pc-caption">
+                    <label>Dashboard</label>
+                    <i class="ti ti-dashboard"></i>
+                </li>
+                <li class="pc-item">
+                    <a href="/home" class="pc-link">
+                        <span class="pc-micon">
+                            <i class="ti ti-home"></i>
+                        </span>
+                        <span class="pc-mtext">Accueil</span>
+                    </a>
+                </li>
+                <!-- TODO: get the vae and -->
+                <li class="pc-item pc-hasmenu">
+                    <a href="#!" class="pc-link"><span class="pc-micon"><i
+                                class="ti ti-plug"></i></span> <span class="pc-mtext" data-i18n="Form Plugins">
+                                    VAE diplome titre
+                                </span> <span class="pc-arrow"><svg xmlns="http://www.w3.org/2000/svg" width="24"
+                                height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right">
+                                <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg></span></a>
+
+                    <ul class="pc-submenu" style="display: none;">
+
+
+                        <li class="pc-item"><a class="pc-link" href="/content"
+                                data-i18n="Rating">CV</a></li>
+                        <li class="pc-item"><a class="pc-link" href="../forms/form2_recaptcha.html"
+                                data-i18n="Google-Re-Captcha">Tableau competes en lien aevc le diplome</a></li>
+                        <li class="pc-item"><a class="pc-link" href="../forms/form2_inputmask.html"
+                                data-i18n="Input Mask">Formations et apports</a></li>
+
+                        <li class="pc-item pc-hasmenu">
+                            <a class="pc-link" href="#"><span data-i18n="Date">Situation 1 </span>
+                                <span class="pc-arrow"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+                                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                                        stroke-linecap="round" stroke-linejoin="round"
+                                        class="feather feather-chevron-right">
+                                        <polyline points="9 18 15 12 9 6"></polyline>
+                                    </svg></span>
+                                </a>
+                            <ul class="pc-submenu" style="display: none;">
+                                <li class="pc-item"><a class="pc-link" href="../forms/form2_datepicker.html"
+                                        data-i18n="Date Picker">Intro</a></li>
+                                        <!-- TODO: add more information -->
+                                <li class="pc-item"><a class="pc-link" href="../forms/form2_daterangepicker.html"
+                                        data-i18n="Date Range Picker">Corps</a></li>
+                                <li class="pc-item"><a class="pc-link" href="../forms/form2_timepicker.html"
+                                        data-i18n="Timepicker">Conclusion</a></li>
+                            </ul>
+                        </li>
+
+                        <li class="pc-item"><a class="pc-link" href="../forms/form2_clipboard.html"
+                                data-i18n="ClipBoard">Glosasire</a></li>
+                        <li class="pc-item"><a class="pc-link" href="../forms/form2_nouislider.html"
+                                data-i18n="Nouislider">Bibliographie - sitiographie</a></li>
+
+                    </ul>
+                </li>
+            </ul>
+
+            {% if !user.is_paying_customer() %}
+            <div class="pc-navbar-card bg-primary rounded">
+                <h4 class="text-white">Passez à Premium</h4>
+                <p class="text-white opacity-75">Débloquez 50 crédits SmartReply</p>
+                <a href="/checkout/pro" target="_blank" class="btn btn-light text-primary">Let's go !</a>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</nav>

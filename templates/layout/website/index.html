@@ -1,0 +1,39 @@
+{% extends "base/base.html" %}
+
+{% block inner_body %}
+<nav class="navbar navbar-expand-lg navbar-light card rounded-0 fixed-top">
+    <div class="container">
+        <a class="navbar-brand" href="/">
+            <!-- <img src="https://ik.imagekit.io/smartlinker/images/logo-dark.svg" alt="image" class="img-fluid brand-logo"> -->
+             TITS
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+            aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto f-w-600">
+                <li class="nav-item d-flex align-items-center">
+                    <a class="btn btn-secondary text-white" href="/home">
+                        Entrer
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+<div class="front-header-image">
+    <div class="bg-img-overlay"
+        style="background-image: url('https://ik.imagekit.io/smartlinker/images/header-bg.jpg')">
+    </div>
+    <div class="privacy-details">
+        <h1 class="text-center text-white pt-5 f-46">{{ meta.meta_title }}</h1>
+        <!-- <p class="text-center text-white pt-3 f-16">Last updated on 18th Feb 2022</p> -->
+    </div>
+    <div class="container">
+        <div class="row justify-content-center mt-5">
+            {% block website_body %}{% endblock website_body %}
+        </div>
+    </div>
+</div>
+{% endblock %}

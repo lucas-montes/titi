@@ -1,0 +1,39 @@
+{% extends "base/base.html" %}
+{% block meta %}
+{% call super() %}
+<meta name="robots" content="noindex, nofollow" />
+{% endblock meta %}
+{% block inner_body %}
+
+<div class="maintenance-block">
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-12">
+                <div class="card error-card">
+                    <div class="card-body">
+                        <div class="error-image-block"><img class="image-animated img-fluid"
+                                src="https://berrydashboard.io/bootstrap/default/assets/images/pages/img-maintenance-bg.svg"
+                                alt="image"> <img
+                                src="https://berrydashboard.io/bootstrap/default/assets/images/pages/img-error-text.svg"
+                                class="img-404 error-text" alt="image">
+                            <img src="https://berrydashboard.io/bootstrap/default/assets/images/pages/img-error-primary-widget.svg"
+                                class="img-404 error-primary" alt="image"> <img
+                                src="https://berrydashboard.io/bootstrap/default/assets/images/pages/img-error-secondary-widget.svg"
+                                class="img-404 puple error-secondary" alt="image">
+                        </div>
+                        <div class="text-center">
+                            <h1 class="mt-4"><b>Oups, are you sure?</b></h1>
+                            <p class="mt-4 text-muted">
+                            The page you are looking was moved, removed,<br>renamed, or
+                                might never exist!</p>
+                            <a href="/" class="btn btn-primary mb-3">
+                                <i class="ti ti-home me-2"></i> Home
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock inner_body %}

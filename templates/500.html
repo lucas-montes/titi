@@ -1,0 +1,41 @@
+{% extends "base/base.html" %}
+{% block meta %}
+{% call super() %}
+<meta name="robots" content="noindex, nofollow" />
+{% endblock meta %}
+{% block inner_body %}
+
+
+<div class="maintenance-block">
+    <div class="container">
+        <div class="row"><!-- [ sample-page ] start -->
+            <div class="col-sm-12">
+                <div class="card construction-card">
+                    <div class="card-body">
+                        <div class="construction-image-block"><img class="image-animated img-fluid"
+                                src="https://berrydashboard.io/bootstrap/default/assets/images/pages/img-maintenance-bg.svg"
+                                alt="image"> <img
+                                src="https://berrydashboard.io/bootstrap/default/assets/images/pages/img-construction-widget.svg"
+                                class="img-block" alt="image">
+                            <img src="https://berrydashboard.io/bootstrap/default/assets/images/pages/img-construction-main.svg"
+                                class="img-main" alt="image">
+                        </div>
+                        <div class="text-center">
+                            <h1 class="mt-4"><b>Sorry</b></h1>
+                            <p class="mt-4 text-muted">
+                                Something went wrong from our end we'll fix it ASAP<br> if the problem persists please
+                                contact us
+                            </p>
+                            <a href="/" class="btn btn-primary mb-3">
+                                <i class="ti ti-home me-2"></i>
+                                Home
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div><!-- [ sample-page ] end -->
+    </div>
+</div>
+
+{% endblock inner_body %}

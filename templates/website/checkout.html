@@ -1,0 +1,35 @@
+{% extends "layout/website/index.html" %}
+
+{% block website_body %}
+<script src="https://js.stripe.com/v3/"></script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const stripe = Stripe("{{ stripe_public }}");
+        initialize();
+
+        async function initialize() {
+            const fetchClientSecret = async () => {
+                return "{{ client_secret }}";
+            };
+
+            const checkout = await stripe.initEmbeddedCheckout({
+                fetchClientSecret,
+            });
+
+            // Mount Checkout
+            checkout.mount('#checkout');
+        }
+    });
+</script>
+
+<div class="col-sm-12">
+    <div class="card border">
+        <div class="card-body">
+            <div id="checkout">
+
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
