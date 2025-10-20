@@ -1,7 +1,11 @@
-use axum::{extract::{Query, State}, routing::get, Extension, Json, Router};
+use axum::{
+    Extension, Json, Router,
+    extract::{Query, State},
+    routing::get,
+};
 
 use stefn::{
-    service::{AppResult, ErrorMessage,  PaginatedResponse},
+    service::{AppResult, ErrorMessage, PaginatedResponse},
     state::APIState,
 };
 use utoipa::{self, OpenApi};

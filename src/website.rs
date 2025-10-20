@@ -1,9 +1,7 @@
-use std::{borrow::Cow, fmt};
+use std::{borrow::Cow};
 
-use axum::{Router, routing::get};
+use axum::{Router, response::Redirect, routing::get};
 
-use chrono::NaiveDate;
-use serde::{Deserialize, Serialize};
 use stefn::{
     askama::Template,
     create_error_templates,
@@ -52,11 +50,18 @@ pub const CSP: ContentSecurityPolicy<'static> = ContentSecurityPolicy {
 };
 
 pub fn routes(state: WebsiteState) -> Router<WebsiteState> {
-    Router::new().route("/", get(landing)).route("/legal", get(legal)).with_state(state)
+    Router::new()
+        .route("/", get(landing))
+        .route("/legal", get(legal))
+        .route("/login", get(login))
+        .with_state(state)
+}
+
+async fn login() -> Redirect {
+    Redirect::permanent("/dashboard")
 }
 
 create_error_templates!("404.html", "500.html");
-
 
 #[derive(Template)]
 #[template(path = "website/landing.html")]

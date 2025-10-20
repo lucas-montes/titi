@@ -1,8 +1,15 @@
-mod website;
 mod api;
+mod dashboard;
+mod website;
 
-use axum::{http::{header::{AUTHORIZATION, CONTENT_TYPE}, Method}, middleware::from_fn_with_state, Router};
-
+use axum::{
+    Router,
+    http::{
+        Method,
+        header::{AUTHORIZATION, CONTENT_TYPE},
+    },
+    middleware::from_fn_with_state,
+};
 
 use stefn::{
     auth::{login_required_middleware, sessions_middleware},
@@ -19,13 +26,13 @@ pub fn create_api_service() -> Service {
     Service::api("API_", api::routes)
 }
 
-
 pub fn create_web_service() -> Service {
     Service::website("WEB_", routes)
 }
 
 fn routes(state: WebsiteState) -> Router<WebsiteState> {
     Router::new()
+        .nest("/dashboard",dashboard::routes(state.clone()))
         .merge(website::routes(state.clone()))
         .layer(from_fn_with_state(state.clone(), sessions_middleware))
         .nest_service("/dist", ServeDir::new("dist"))

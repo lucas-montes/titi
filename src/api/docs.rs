@@ -1,12 +1,11 @@
 use stefn::service::ErrorMessage;
 
 use utoipa::{
-    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
     Modify, OpenApi,
+    openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
 };
 
 use crate::api::{auth, jobs};
-
 
 #[derive(OpenApi)]
 #[openapi(
@@ -44,11 +43,7 @@ impl Modify for SecurityAddon {
             );
             components.add_security_scheme(
                 "basic",
-                SecurityScheme::Http(
-                    HttpBuilder::new()
-                        .scheme(HttpAuthScheme::Basic)
-                        .build(),
-                ),
+                SecurityScheme::Http(HttpBuilder::new().scheme(HttpAuthScheme::Basic).build()),
             )
         }
     }

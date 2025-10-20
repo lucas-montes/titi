@@ -1,15 +1,11 @@
 use sqlx::{Postgres, QueryBuilder};
-use stefn::{database::Database, errors::AppError, };
+use stefn::{database::Database, errors::AppError};
 
 use super::dtos::{JobFilters, JobResponse};
 
-pub async fn count_jobs(
-    database: &Database,
-    payload: &JobFilters,
-) -> Result<i64, AppError> {
-    let mut query_builder = QueryBuilder::<Postgres>::new(
-        "SELECT COUNT(pk) as count FROM jobs WHERE"
-    );
+pub async fn count_jobs(database: &Database, payload: &JobFilters) -> Result<i64, AppError> {
+    let mut query_builder =
+        QueryBuilder::<Postgres>::new("SELECT COUNT(pk) as count FROM jobs WHERE");
 
     apply_filters(&mut query_builder, payload);
 
@@ -18,17 +14,12 @@ pub async fn count_jobs(
         .fetch_one(&**database)
         .await?;
 
-    tracing::debug!(
-        total_count = count,
-        "Counted jobs matching filters"
-    );
+    tracing::debug!(total_count = count, "Counted jobs matching filters");
 
     Ok(count)
 }
 
-
 fn apply_filters<'a>(query_builder: &mut QueryBuilder<'a, Postgres>, filters: &'a JobFilters) {
-
     if let Some(country) = &filters.country {
         query_builder.push(" country = ");
         query_builder.push_bind(country);
@@ -72,7 +63,6 @@ fn apply_filters<'a>(query_builder: &mut QueryBuilder<'a, Postgres>, filters: &'
             query_builder.push_bind(skills_vec);
         }
     }
-
 }
 
 pub async fn fetch_jobs(
@@ -82,11 +72,10 @@ pub async fn fetch_jobs(
     let mut query_builder = QueryBuilder::new(
         "SELECT id, title, company, location, contract_type,
                 description, url, posted_date, is_remote, skills, salary_range
-         FROM jobs WHERE"
+         FROM jobs WHERE",
     );
 
     apply_filters(&mut query_builder, payload);
-
 
     // Add ordering
     query_builder.push(" ORDER BY posted_date DESC, created_at DESC");
@@ -105,7 +94,6 @@ pub async fn fetch_jobs(
         .build_query_as()
         .fetch_all(&**database)
         .await?;
-
 
     tracing::info!(
         job_count = rows.len(),

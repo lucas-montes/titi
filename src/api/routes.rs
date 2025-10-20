@@ -1,14 +1,21 @@
 use utoipa::OpenApi;
 use utoipa_scalar::{Scalar, Servable as ScalarServable};
 
-use stefn::{auth::jwt_middleware, axum::{middleware::from_fn_with_state, Router}, hyper::{
-    header::{AUTHORIZATION, CONTENT_TYPE},
-    Method,
-}, state::APIState, tower_http::cors::{Any, CorsLayer}
+use stefn::{
+    auth::jwt_middleware,
+    axum::{Router, middleware::from_fn_with_state},
+    hyper::{
+        Method,
+        header::{AUTHORIZATION, CONTENT_TYPE},
+    },
+    state::APIState,
+    tower_http::cors::{Any, CorsLayer},
 };
 
 use super::{
-    auth::{self, PrivateClaims}, docs::ApiDoc, jobs
+    auth::{self, PrivateClaims},
+    docs::ApiDoc,
+    jobs,
 };
 
 pub fn routes(state: APIState) -> Router<APIState> {
@@ -25,7 +32,7 @@ pub fn routes(state: APIState) -> Router<APIState> {
 
 fn api_routes(state: APIState) -> Router<APIState> {
     Router::new()
-        .nest("/jobs",jobs::routes(state.clone()))
+        .nest("/jobs", jobs::routes(state.clone()))
         // .layer(from_fn_with_state(
         //     state.clone(),
         //     jwt_middleware::<PrivateClaims>,

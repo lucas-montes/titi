@@ -1,4 +1,9 @@
-use stefn::{auth::{create_token, verify_password}, database::Database, errors::AppError, jsonwebtoken::EncodingKey};
+use stefn::{
+    auth::{create_token, verify_password},
+    database::Database,
+    errors::AppError,
+    jsonwebtoken::EncodingKey,
+};
 
 use crate::api::auth::PrivateClaims;
 
