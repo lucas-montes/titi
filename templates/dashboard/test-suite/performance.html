@@ -1,0 +1,384 @@
+{% extends "layout/dashboard/index.html" %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.css">
+{% endblock extra_head %}
+
+{% block dashboard_body %}
+
+<!-- Performance Testing Header -->
+<div class="col-12 mb-4">
+    <div class="card border-warning">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="avatar avatar-lg bg-warning bg-opacity-10">
+                        <i class="bi bi-speedometer2 text-warning" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+                <div class="col">
+                    <h4 class="mb-1">Performance Testing Phase</h4>
+                    <p class="text-muted mb-0">Load testing, response time analysis, and throughput measurements</p>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#loadTestModal">
+                        <i class="bi bi-play-fill"></i> Start Load Test
+                    </button>
+                    <a href="/dashboard/test-suite" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Real-time Metrics -->
+<div class="col-12 mb-4">
+    <div class="row g-3">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Requests/sec</h6>
+                    <h2 class="mb-0" id="rps">1,245</h2>
+                    <small class="text-success">
+                        <i class="bi bi-arrow-up"></i> 12% from baseline
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Avg Response Time</h6>
+                    <h2 class="mb-0" id="avgResponseTime">45ms</h2>
+                    <small class="text-success">
+                        <i class="bi bi-arrow-down"></i> 5ms improvement
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Error Rate</h6>
+                    <h2 class="mb-0 text-danger" id="errorRate">0.8%</h2>
+                    <small class="text-danger">
+                        <i class="bi bi-arrow-up"></i> Above threshold (0.5%)
+                    </small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="text-muted mb-2">Active Users</h6>
+                    <h2 class="mb-0" id="activeUsers">500</h2>
+                    <small class="text-muted">
+                        Target: 1000
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Response Time Chart -->
+<div class="col-lg-8 mb-4">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Response Time Distribution</h5>
+            <div class="btn-group btn-group-sm">
+                <button class="btn btn-outline-secondary active">Live</button>
+                <button class="btn btn-outline-secondary">1m</button>
+                <button class="btn btn-outline-secondary">5m</button>
+                <button class="btn btn-outline-secondary">15m</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="responseTimeChart" style="height: 350px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Response Time Percentiles -->
+<div class="col-lg-4 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Response Time Percentiles</h5>
+        </div>
+        <div class="card-body">
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">p50 (Median)</span>
+                    <strong>42ms</strong>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-success" style="width: 42%"></div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">p90</span>
+                    <strong>89ms</strong>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-info" style="width: 89%"></div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">p95</span>
+                    <strong>156ms</strong>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-warning" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="mb-3">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">p99</span>
+                    <strong>245ms</strong>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-danger" style="width: 100%"></div>
+                </div>
+            </div>
+            <div class="mb-0">
+                <div class="d-flex justify-content-between mb-1">
+                    <span class="text-muted">Max</span>
+                    <strong>1,234ms</strong>
+                </div>
+                <div class="progress" style="height: 8px;">
+                    <div class="progress-bar bg-danger" style="width: 100%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Throughput Chart -->
+<div class="col-lg-6 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Throughput Over Time</h5>
+        </div>
+        <div class="card-body">
+            <div id="throughputChart" style="height: 300px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Rate Chart -->
+<div class="col-lg-6 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Error Rate Tracking</h5>
+        </div>
+        <div class="card-body">
+            <div id="errorRateChart" style="height: 300px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Endpoint Performance -->
+<div class="col-12 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Endpoint Performance Breakdown</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Endpoint</th>
+                            <th>Method</th>
+                            <th>Requests</th>
+                            <th>Avg Time</th>
+                            <th>p95</th>
+                            <th>p99</th>
+                            <th>Errors</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>/api/v1/users</code></td>
+                            <td><span class="badge bg-primary">GET</span></td>
+                            <td>15,234</td>
+                            <td>42ms</td>
+                            <td>89ms</td>
+                            <td>156ms</td>
+                            <td><span class="text-success">0.1%</span></td>
+                            <td><span class="badge bg-success">Good</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/products</code></td>
+                            <td><span class="badge bg-primary">GET</span></td>
+                            <td>12,456</td>
+                            <td>67ms</td>
+                            <td>145ms</td>
+                            <td>234ms</td>
+                            <td><span class="text-success">0.2%</span></td>
+                            <td><span class="badge bg-success">Good</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/orders</code></td>
+                            <td><span class="badge bg-success">POST</span></td>
+                            <td>8,923</td>
+                            <td>189ms</td>
+                            <td>456ms</td>
+                            <td>789ms</td>
+                            <td><span class="text-warning">1.2%</span></td>
+                            <td><span class="badge bg-warning">Slow</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>/api/v1/search</code></td>
+                            <td><span class="badge bg-primary">GET</span></td>
+                            <td>23,456</td>
+                            <td>345ms</td>
+                            <td>890ms</td>
+                            <td>1,234ms</td>
+                            <td><span class="text-danger">2.8%</span></td>
+                            <td><span class="badge bg-danger">Critical</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Load Test Configuration -->
+<div class="col-12">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Recent Load Tests</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Test Name</th>
+                            <th>Duration</th>
+                            <th>Virtual Users</th>
+                            <th>Total Requests</th>
+                            <th>Avg Response</th>
+                            <th>Success Rate</th>
+                            <th>Started</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Peak Hour Simulation</td>
+                            <td>10m</td>
+                            <td>1,000</td>
+                            <td>156,234</td>
+                            <td>45ms</td>
+                            <td><span class="text-success">99.2%</span></td>
+                            <td>2 hours ago</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary">View Report</button>
+                                <button class="btn btn-sm btn-outline-secondary">Re-run</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Stress Test - Breaking Point</td>
+                            <td>15m</td>
+                            <td>5,000</td>
+                            <td>892,456</td>
+                            <td>234ms</td>
+                            <td><span class="text-danger">87.3%</span></td>
+                            <td>Yesterday</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary">View Report</button>
+                                <button class="btn btn-sm btn-outline-secondary">Re-run</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Load Test Modal -->
+<div class="modal fade" id="loadTestModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Configure Load Test</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Test Name</label>
+                            <input type="text" class="form-control" placeholder="e.g., Peak Hour Test">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Load Pattern</label>
+                            <select class="form-select">
+                                <option>Constant Load</option>
+                                <option>Ramp-up</option>
+                                <option>Spike Test</option>
+                                <option>Stress Test</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Virtual Users</label>
+                            <input type="number" class="form-control" value="100" min="1" max="10000">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Duration (minutes)</label>
+                            <input type="number" class="form-control" value="10" min="1" max="120">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Ramp-up (seconds)</label>
+                            <input type="number" class="form-control" value="30" min="0">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Target Endpoints</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" checked>
+                            <label class="form-check-label">All endpoints</label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox">
+                            <label class="form-check-label">Critical endpoints only</label>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Think Time (ms)</label>
+                            <input type="number" class="form-control" value="1000">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Timeout (ms)</label>
+                            <input type="number" class="form-control" value="5000">
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-warning">Start Load Test</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock dashboard_body %}
+
+{% block scripts %}
+{% call super() %}
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
+<script src="/dist/assets/js/performance-charts.js"></script>
+{% endblock scripts %}

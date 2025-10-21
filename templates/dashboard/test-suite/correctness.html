@@ -1,0 +1,245 @@
+{% extends "layout/dashboard/index.html" %}
+
+{% block dashboard_body %}
+
+<!-- Correctness Testing Header -->
+<div class="col-12 mb-4">
+    <div class="card border-primary">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-auto">
+                    <div class="avatar avatar-lg bg-primary bg-opacity-10">
+                        <i class="bi bi-check2-square text-primary" style="font-size: 2rem;"></i>
+                    </div>
+                </div>
+                <div class="col">
+                    <h4 class="mb-1">Correctness Testing Phase</h4>
+                    <p class="text-muted mb-0">Business logic validation, data integrity, CRUD operations</p>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-primary" id="runCorrectnessTests">
+                        <i class="bi bi-play-fill"></i> Run Correctness Tests
+                    </button>
+                    <a href="/dashboard/test-suite" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Progress -->
+<div class="col-12 mb-4">
+    <div class="card">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Overall Progress</h6>
+                <span class="text-primary fw-semibold">342/515 tests (66.4%)</span>
+            </div>
+            <div class="progress" style="height: 20px;">
+                <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: 66.4%">
+                    Running...
+                </div>
+            </div>
+            <div class="d-flex justify-content-between mt-2">
+                <small class="text-success"><i class="bi bi-check-circle"></i> 312 passed</small>
+                <small class="text-danger"><i class="bi bi-x-circle"></i> 30 failed</small>
+                <small class="text-muted"><i class="bi bi-clock"></i> 173 pending</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- CRUD Operations -->
+<div class="col-12 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">CRUD Operations Testing</h5>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <div class="text-center p-3 border rounded">
+                        <i class="bi bi-plus-circle text-success" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2 mb-1">CREATE</h6>
+                        <p class="text-muted small mb-2">Resource creation</p>
+                        <span class="badge bg-success">125/125</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center p-3 border rounded">
+                        <i class="bi bi-eye text-info" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2 mb-1">READ</h6>
+                        <p class="text-muted small mb-2">Data retrieval</p>
+                        <span class="badge bg-success">98/100</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center p-3 border rounded">
+                        <i class="bi bi-pencil text-warning" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2 mb-1">UPDATE</h6>
+                        <p class="text-muted small mb-2">Resource modification</p>
+                        <span class="badge bg-warning">78/90</span>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="text-center p-3 border rounded">
+                        <i class="bi bi-trash text-danger" style="font-size: 2rem;"></i>
+                        <h6 class="mt-2 mb-1">DELETE</h6>
+                        <p class="text-muted small mb-2">Resource removal</p>
+                        <span class="badge bg-success">89/90</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Categories -->
+<div class="col-12 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Test Categories</h5>
+        </div>
+        <div class="card-body">
+            <div class="list-group">
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Business Logic Validation</h6>
+                        <span class="badge bg-success">Running</span>
+                    </div>
+                    <div class="progress mb-2" style="height: 8px;">
+                        <div class="progress-bar bg-success" style="width: 85%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span>85/100 tests</span>
+                        <span>Est. 2 minutes remaining</span>
+                    </div>
+                </div>
+
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Data Integrity Checks</h6>
+                        <span class="badge bg-success">Completed</span>
+                    </div>
+                    <div class="progress mb-2" style="height: 8px;">
+                        <div class="progress-bar bg-success" style="width: 100%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span>120/120 tests</span>
+                        <span>Completed 5 minutes ago</span>
+                    </div>
+                </div>
+
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Edge Cases & Boundary Values</h6>
+                        <span class="badge bg-warning">Pending</span>
+                    </div>
+                    <div class="progress mb-2" style="height: 8px;">
+                        <div class="progress-bar bg-secondary" style="width: 0%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span>0/150 tests</span>
+                        <span>Queued</span>
+                    </div>
+                </div>
+
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">State Transitions</h6>
+                        <span class="badge bg-success">Completed</span>
+                    </div>
+                    <div class="progress mb-2" style="height: 8px;">
+                        <div class="progress-bar bg-success" style="width: 100%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span>75/75 tests</span>
+                        <span>Completed 10 minutes ago</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Failed Tests -->
+<div class="col-12">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Failed Tests</h5>
+            <span class="badge bg-danger">30 failures</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Test Name</th>
+                            <th>Endpoint</th>
+                            <th>Expected</th>
+                            <th>Actual</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>User creation with invalid email</td>
+                            <td><code>POST /api/v1/users</code></td>
+                            <td>400 Bad Request</td>
+                            <td><span class="text-danger">200 OK</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary">Details</button>
+                                <button class="btn btn-sm btn-outline-secondary">Re-run</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Update non-existent resource</td>
+                            <td><code>PUT /api/v1/products/999999</code></td>
+                            <td>404 Not Found</td>
+                            <td><span class="text-danger">500 Server Error</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary">Details</button>
+                                <button class="btn btn-sm btn-outline-secondary">Re-run</button>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>Pagination with negative page number</td>
+                            <td><code>GET /api/v1/users?page=-1</code></td>
+                            <td>400 Bad Request</td>
+                            <td><span class="text-danger">200 OK (empty array)</span></td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary">Details</button>
+                                <button class="btn btn-sm btn-outline-secondary">Re-run</button>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock dashboard_body %}
+
+{% block scripts %}
+{% call super() %}
+<script>
+document.getElementById('runCorrectnessTests').addEventListener('click', function() {
+    alert('Starting correctness tests...');
+});
+
+// Simulate live progress updates
+setInterval(() => {
+    // Update progress bar
+    const progressBar = document.querySelector('.progress-bar-animated');
+    if (progressBar) {
+        let currentWidth = parseFloat(progressBar.style.width);
+        if (currentWidth < 100) {
+            progressBar.style.width = (currentWidth + 0.5) + '%';
+        }
+    }
+}, 1000);
+</script>
+{% endblock scripts %}
