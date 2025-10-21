@@ -1,44 +1,428 @@
 {% extends "layout/dashboard/index.html" %}
 
 {% block extra_head %}
-<link href="
-https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css
-" rel="stylesheet">
-
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.css">
+<style>
+    .metric-card {
+        transition: transform 0.2s;
+    }
+    .metric-card:hover {
+        transform: translateY(-4px);
+    }
+    .health-score {
+        font-size: 4rem;
+        font-weight: 700;
+        line-height: 1;
+    }
+    .quick-action-card {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .quick-action-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+    }
+    .alert-item {
+        border-left: 4px solid;
+        transition: background-color 0.2s;
+    }
+    .alert-item:hover {
+        background-color: #f8f9fa;
+    }
+    .alert-critical {
+        border-left-color: #dc2626;
+    }
+    .alert-warning {
+        border-left-color: #f59e0b;
+    }
+    .alert-info {
+        border-left-color: #3b82f6;
+    }
+</style>
 {% endblock extra_head %}
 
 {% block dashboard_body %}
-<div class="col-12">
-    <div class="card">
-        <div class="card-body">
+
+<!-- Welcome Header -->
+<div class="col-12 mb-4">
+    <div class="d-flex justify-content-between align-items-center">
+        <div>
+            <h3 class="mb-1">Welcome back, {{ user.name() }}!</h3>
+            <p class="text-muted mb-0">Here's what's happening with your API tests today</p>
+        </div>
+        <div class="btn-group">
+            <button class="btn btn-primary" onclick="location.href='/dashboard/test-suite'">
+                <i class="bi bi-play-fill"></i> Run All Tests
+            </button>
+            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#importSpecModal">
+                <i class="bi bi-plus-circle"></i> New Test Suite
+            </button>
         </div>
     </div>
 </div>
 
+<!-- Hero Metrics -->
+<div class="col-12 mb-4">
+    <div class="row g-3">
+        <!-- Overall Health Score -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card metric-card border-0 shadow-sm">
+                <div class="card-body text-center py-4">
+                    <div class="health-score text-success mb-2">A</div>
+                    <h6 class="text-muted mb-0">API Health Score</h6>
+                    <p class="small text-success mb-0 mt-1">
+                        <i class="bi bi-arrow-up"></i> +5% from last week
+                    </p>
+                </div>
+            </div>
+        </div>
 
-<div class="col-12 mt-4 step6 mb-2">
-    <div class="card table-card">
-        <div class="card-header d-flex align-items-center justify-content-between py-3">
-            <h5 class="mb-0">Demandes recentes</h5>
-            <a href="/proposals" class="btn btn-sm btn-link-primary">View All</a>
+        <!-- Active Tests -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card metric-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="avatar bg-primary bg-opacity-10">
+                            <i class="bi bi-play-circle text-primary" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <span class="badge bg-primary">Running</span>
+                    </div>
+                    <h3 class="mb-1">3</h3>
+                    <h6 class="text-muted mb-0">Active Tests</h6>
+                    <p class="small text-muted mb-0 mt-1">342 tests in progress</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Failures -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card metric-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="avatar bg-danger bg-opacity-10">
+                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <span class="badge bg-danger">Urgent</span>
+                    </div>
+                    <h3 class="mb-1 text-danger">14</h3>
+                    <h6 class="text-muted mb-0">Recent Failures</h6>
+                    <p class="small text-muted mb-0 mt-1">Last 24 hours</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Coverage -->
+        <div class="col-lg-3 col-md-6">
+            <div class="card metric-card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div class="avatar bg-info bg-opacity-10">
+                            <i class="bi bi-bar-chart text-info" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <span class="badge bg-info">Coverage</span>
+                    </div>
+                    <h3 class="mb-1">87%</h3>
+                    <h6 class="text-muted mb-0">Endpoint Coverage</h6>
+                    <p class="small text-muted mb-0 mt-1">124/142 endpoints</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="col-12 mb-4">
+    <h5 class="mb-3">Quick Actions</h5>
+    <div class="row g-3">
+        <div class="col-md-3">
+            <div class="card quick-action-card border h-100" onclick="location.href='/dashboard/test-suite/security'">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-shield-lock text-danger mb-3" style="font-size: 2.5rem;"></i>
+                    <h6 class="mb-2">Security Scan</h6>
+                    <p class="small text-muted mb-0">Run security tests</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card quick-action-card border h-100" onclick="location.href='/dashboard/test-suite/performance'">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-speedometer2 text-warning mb-3" style="font-size: 2.5rem;"></i>
+                    <h6 class="mb-2">Load Test</h6>
+                    <p class="small text-muted mb-0">Performance testing</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card quick-action-card border h-100" data-bs-toggle="modal" data-bs-target="#importSpecModal">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-file-earmark-code text-primary mb-3" style="font-size: 2.5rem;"></i>
+                    <h6 class="mb-2">Import OpenAPI</h6>
+                    <p class="small text-muted mb-0">Auto-generate tests</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card quick-action-card border h-100" onclick="location.href='/dashboard/reports'">
+                <div class="card-body text-center py-4">
+                    <i class="bi bi-graph-up text-success mb-3" style="font-size: 2.5rem;"></i>
+                    <h6 class="mb-2">View Reports</h6>
+                    <p class="small text-muted mb-0">Analytics & insights</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Row -->
+<div class="col-12 mb-4">
+    <div class="row g-3">
+        <!-- Critical Alerts -->
+        <div class="col-lg-4">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Critical Alerts</h5>
+                    <span class="badge bg-danger">3</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item alert-item alert-critical">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-shield-x text-danger me-3 mt-1" style="font-size: 1.5rem;"></i>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">SQL Injection Vulnerability</h6>
+                                    <p class="small text-muted mb-1">Found in /api/v1/users endpoint</p>
+                                    <small class="text-muted">2 hours ago</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger">Fix</button>
+                            </div>
+                        </div>
+                        <div class="list-group-item alert-item alert-critical">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-exclamation-circle text-danger me-3 mt-1" style="font-size: 1.5rem;"></i>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">Authentication Bypass</h6>
+                                    <p class="small text-muted mb-1">Security test failed</p>
+                                    <small class="text-muted">5 hours ago</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger">View</button>
+                            </div>
+                        </div>
+                        <div class="list-group-item alert-item alert-warning">
+                            <div class="d-flex align-items-start">
+                                <i class="bi bi-clock-history text-warning me-3 mt-1" style="font-size: 1.5rem;"></i>
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">Slow Response Time</h6>
+                                    <p class="small text-muted mb-1">/api/v1/search exceeding 1s</p>
+                                    <small class="text-muted">1 day ago</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-warning">Check</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer text-center">
+                        <a href="/dashboard/alerts" class="btn btn-sm btn-link">View All Alerts</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Success Rate Trend -->
+        <div class="col-lg-8">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Test Success Rate (Last 7 Days)</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active">7D</button>
+                        <button class="btn btn-outline-secondary">30D</button>
+                        <button class="btn btn-outline-secondary">90D</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="successRateChart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Test Suites Overview -->
+<div class="col-12 mb-4">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Your Test Suites</h5>
+            <button class="btn btn-sm btn-primary" onclick="location.href='/dashboard/test-suite'">
+                View All Suites
+            </button>
+        </div>
+        <div class="card-body">
+            <div class="row g-3">
+                <!-- Test Suite Card 1 -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="card border">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h6 class="mb-1">User API Tests</h6>
+                                    <small class="text-muted">Production</small>
+                                </div>
+                                <span class="badge bg-success">Active</span>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span>Success Rate</span>
+                                    <span class="fw-semibold">94.4%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-success" style="width: 94.4%"></div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted">
+                                <span><i class="bi bi-check-circle text-success"></i> 236</span>
+                                <span><i class="bi bi-x-circle text-danger"></i> 14</span>
+                                <span>Last run: 10m ago</span>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-light">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary flex-grow-1">
+                                    <i class="bi bi-play-fill"></i> Run
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-gear"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Suite Card 2 -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="card border">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h6 class="mb-1">Product API Tests</h6>
+                                    <small class="text-muted">Staging</small>
+                                </div>
+                                <span class="badge bg-primary">Running</span>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span>Progress</span>
+                                    <span class="fw-semibold">67%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-primary progress-bar-striped progress-bar-animated" style="width: 67%"></div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted">
+                                <span><i class="bi bi-check-circle text-success"></i> 156</span>
+                                <span><i class="bi bi-x-circle text-danger"></i> 2</span>
+                                <span>Started: 2m ago</span>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-light">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-danger flex-grow-1">
+                                    <i class="bi bi-stop-fill"></i> Stop
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Test Suite Card 3 -->
+                <div class="col-md-6 col-lg-4">
+                    <div class="card border">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h6 class="mb-1">Payment API Tests</h6>
+                                    <small class="text-muted">Production</small>
+                                </div>
+                                <span class="badge bg-danger">Failed</span>
+                            </div>
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between small mb-1">
+                                    <span>Success Rate</span>
+                                    <span class="fw-semibold text-danger">74.2%</span>
+                                </div>
+                                <div class="progress" style="height: 6px;">
+                                    <div class="progress-bar bg-danger" style="width: 74.2%"></div>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted">
+                                <span><i class="bi bi-check-circle text-success"></i> 89</span>
+                                <span><i class="bi bi-x-circle text-danger"></i> 31</span>
+                                <span>Last run: 3h ago</span>
+                            </div>
+                        </div>
+                        <div class="card-footer bg-light">
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary flex-grow-1">
+                                    <i class="bi bi-arrow-clockwise"></i> Re-run
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-bug"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="col-12">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Recent Activity</h5>
         </div>
         <div class="card-body">
             <div class="table-responsive">
-                <table class="table table-hover" id="pc-dt-simple">
+                <table class="table table-hover">
                     <thead>
                         <tr>
-                            <th>Contact</th>
-                            <th>Secteur</th>
-                            <th>Entreprise</th>
-                            <th>Motif</th>
-                            <th>Date/Heure</th>
-                            <th></th>
+                            <th>Time</th>
+                            <th>Test Suite</th>
+                            <th>Phase</th>
+                            <th>Status</th>
+                            <th>Duration</th>
+                            <th>Results</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
-                    <tbody>
-
+                    <tbody id="recentActivityTable">
+                        <!-- Data loaded via JavaScript -->
                     </tbody>
                 </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Import OpenAPI Modal -->
+<div class="modal fade" id="importSpecModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Import OpenAPI Specification</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Specification URL</label>
+                    <input type="url" class="form-control" placeholder="https://api.example.com/openapi.json">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary">Import & Generate Tests</button>
             </div>
         </div>
     </div>
@@ -48,6 +432,172 @@ https://cdn.jsdelivr.net/npm/intro.js@7.2.0/minified/introjs.min.css
 
 {% block scripts %}
 {% call super() %}
-<script src="https://cdn.jsdelivr.net/npm/intro.js@7.2.0/intro.min.js"></script>
-<script src="/dist/assets/js/homeTour.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts@3.45.1/dist/apexcharts.min.js"></script>
+<script>
+// Success Rate Chart
+const successRateOptions = {
+    series: [{
+        name: 'Success Rate',
+        data: [92.5, 94.1, 93.8, 91.2, 95.3, 94.7, 95.5]
+    }],
+    chart: {
+        type: 'area',
+        height: 300,
+        toolbar: {
+            show: false
+        },
+        sparkline: {
+            enabled: false
+        }
+    },
+    colors: ['#2ca87f'],
+    dataLabels: {
+        enabled: false
+    },
+    stroke: {
+        curve: 'smooth',
+        width: 3
+    },
+    fill: {
+        type: 'gradient',
+        gradient: {
+            opacityFrom: 0.6,
+            opacityTo: 0.1,
+        }
+    },
+    xaxis: {
+        categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        axisBorder: {
+            show: false
+        },
+        axisTicks: {
+            show: false
+        }
+    },
+    yaxis: {
+        min: 85,
+        max: 100,
+        labels: {
+            formatter: function(val) {
+                return val.toFixed(1) + '%';
+            }
+        }
+    },
+    grid: {
+        borderColor: '#e7e7e7',
+        strokeDashArray: 5,
+    },
+    tooltip: {
+        y: {
+            formatter: function(val) {
+                return val.toFixed(1) + '%';
+            }
+        }
+    }
+};
+
+const successRateChart = new ApexCharts(document.querySelector("#successRateChart"), successRateOptions);
+successRateChart.render();
+
+// Load Recent Activity
+function loadRecentActivity() {
+    const tbody = document.getElementById('recentActivityTable');
+
+    const activities = [
+        {
+            time: '2 min ago',
+            suite: 'User API Tests',
+            phase: 'Security',
+            status: 'completed',
+            duration: '2m 34s',
+            passed: 236,
+            failed: 14,
+            total: 250
+        },
+        {
+            time: '15 min ago',
+            suite: 'Product API Tests',
+            phase: 'Correctness',
+            status: 'running',
+            duration: '1m 12s',
+            passed: 156,
+            failed: 2,
+            total: 180
+        },
+        {
+            time: '1 hour ago',
+            suite: 'Order API Tests',
+            phase: 'Compliance',
+            status: 'completed',
+            duration: '3m 45s',
+            passed: 178,
+            failed: 2,
+            total: 180
+        },
+        {
+            time: '3 hours ago',
+            suite: 'Payment API Tests',
+            phase: 'Security',
+            status: 'failed',
+            duration: '45s',
+            passed: 89,
+            failed: 31,
+            total: 120
+        }
+    ];
+
+    tbody.innerHTML = activities.map(activity => `
+        <tr>
+            <td><small class="text-muted">${activity.time}</small></td>
+            <td><strong>${activity.suite}</strong></td>
+            <td><span class="badge bg-${getPhaseColor(activity.phase)}">${activity.phase}</span></td>
+            <td><span class="badge bg-${getStatusColor(activity.status)}">${activity.status}</span></td>
+            <td>${activity.duration}</td>
+            <td>
+                <span class="text-success">${activity.passed}</span> /
+                <span class="text-danger">${activity.failed}</span> /
+                <span class="text-muted">${activity.total}</span>
+            </td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" onclick="viewDetails('${activity.suite}')">
+                    <i class="bi bi-eye"></i>
+                </button>
+            </td>
+        </tr>
+    `).join('');
+}
+
+function getPhaseColor(phase) {
+    const colors = {
+        'Security': 'danger',
+        'Compliance': 'info',
+        'Correctness': 'primary',
+        'Performance': 'warning'
+    };
+    return colors[phase] || 'secondary';
+}
+
+function getStatusColor(status) {
+    const colors = {
+        'completed': 'success',
+        'running': 'primary',
+        'failed': 'danger',
+        'queued': 'secondary'
+    };
+    return colors[status] || 'secondary';
+}
+
+function viewDetails(suite) {
+    console.log('Viewing details for:', suite);
+    // Implement navigation to details page
+}
+
+// Auto-refresh every 30 seconds
+setInterval(loadRecentActivity, 30000);
+
+// Initial load
+document.addEventListener('DOMContentLoaded', function() {
+    loadRecentActivity();
+});
+</script>
 {% endblock scripts %}

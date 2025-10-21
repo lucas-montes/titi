@@ -17,6 +17,7 @@
         <!-- [Mobile Media Block end] -->
         <div class="ms-auto">
             <ul class="list-unstyled">
+                {% include "layout/dashboard/notifications.html" %}
                 <li class="dropdown pc-h-item header-user-profile" id="button-dropdown-navbar">
                     <a class="pc-head-link head-link-primary dropdown-toggle arrow-none me-0" data-bs-toggle="dropdown"
                         href="#" role="button" aria-haspopup="false" aria-expanded="false">
@@ -33,14 +34,29 @@
 
                             {% if user.is_admin() %}
                             <a href="/admin" class="dropdown-item">
-                                <i class="ti ti-user"></i>
-                                <span>Admin</span>
+                                <i class="ti ti-shield-check"></i>
+                                <span>Admin Panel</span>
                             </a>
                             {% endif %}
-                            <a href="/profile" class="dropdown-item">
+                            <a href="/dashboard/profile" class="dropdown-item">
                                 <i class="ti ti-user"></i>
-                                <span>Profile</span>
+                                <span>My Profile</span>
                             </a>
+                            <a href="/dashboard/reports" class="dropdown-item">
+                                <i class="ti ti-chart-bar"></i>
+                                <span>Reports & Analytics</span>
+                            </a>
+                            <a href="/dashboard/settings/integrations" class="dropdown-item">
+                                <i class="ti ti-plug"></i>
+                                <span>Integrations</span>
+                            </a>
+                            <a href="/dashboard/settings/notifications" class="dropdown-item">
+                                <i class="ti ti-bell-cog"></i>
+                                <span>Notification Settings</span>
+                            </a>
+
+                            <hr>
+
                             <div class="profile-notification-scroll position-relative"
                                 style="max-height: calc(100vh - 280px)">
                                 <a href="/logout" class="dropdown-item">

@@ -1,74 +1,112 @@
 <nav class="pc-sidebar">
     <div class="navbar-wrapper">
         <div class="m-header">
-            <!-- <a href="/home" class="b-brand text-primary">
-                <img class="logo logo-lg" src="https://ik.imagekit.io/smartlinker/images/logo-dark.svg" alt="logo">
-            </a> -->
-            Tits
+            <a href="/dashboard" class="b-brand text-primary">
+                <span class="fw-bold fs-4">API Tester</span>
+            </a>
         </div>
         <div class="navbar-content">
             <ul class="pc-navbar">
-                <!-- Use this as the title and avoid nesting the menu so much -->
+
+                <!-- Main Navigation -->
                 <li class="pc-item pc-caption">
-                    <label>Dashboard</label>
-                    <i class="ti ti-dashboard"></i>
+                    <label>Main</label>
                 </li>
+
                 <li class="pc-item">
-                    <a href="/home" class="pc-link">
+                    <a href="/dashboard" class="pc-link">
                         <span class="pc-micon">
-                            <i class="ti ti-home"></i>
+                            <i class="bi bi-house-door"></i>
                         </span>
-                        <span class="pc-mtext">Accueil</span>
+                        <span class="pc-mtext">Overview</span>
                     </a>
                 </li>
-                <!-- TODO: get the vae and -->
-                <li class="pc-item pc-hasmenu">
-                    <a href="#!" class="pc-link"><span class="pc-micon"><i
-                                class="ti ti-plug"></i></span> <span class="pc-mtext" data-i18n="Form Plugins">
-                                    VAE diplome titre
-                                </span> <span class="pc-arrow"><svg xmlns="http://www.w3.org/2000/svg" width="24"
-                                height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right">
-                                <polyline points="9 18 15 12 9 6"></polyline>
-                            </svg></span></a>
 
-                    <ul class="pc-submenu" style="display: none;">
-
-
-                        <li class="pc-item"><a class="pc-link" href="/content"
-                                data-i18n="Rating">CV</a></li>
-                        <li class="pc-item"><a class="pc-link" href="../forms/form2_recaptcha.html"
-                                data-i18n="Google-Re-Captcha">Tableau competes en lien aevc le diplome</a></li>
-                        <li class="pc-item"><a class="pc-link" href="../forms/form2_inputmask.html"
-                                data-i18n="Input Mask">Formations et apports</a></li>
-
-                        <li class="pc-item pc-hasmenu">
-                            <a class="pc-link" href="#"><span data-i18n="Date">Situation 1 </span>
-                                <span class="pc-arrow"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"
-                                        viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-                                        stroke-linecap="round" stroke-linejoin="round"
-                                        class="feather feather-chevron-right">
-                                        <polyline points="9 18 15 12 9 6"></polyline>
-                                    </svg></span>
-                                </a>
-                            <ul class="pc-submenu" style="display: none;">
-                                <li class="pc-item"><a class="pc-link" href="../forms/form2_datepicker.html"
-                                        data-i18n="Date Picker">Intro</a></li>
-                                        <!-- TODO: add more information -->
-                                <li class="pc-item"><a class="pc-link" href="../forms/form2_daterangepicker.html"
-                                        data-i18n="Date Range Picker">Corps</a></li>
-                                <li class="pc-item"><a class="pc-link" href="../forms/form2_timepicker.html"
-                                        data-i18n="Timepicker">Conclusion</a></li>
-                            </ul>
-                        </li>
-
-                        <li class="pc-item"><a class="pc-link" href="../forms/form2_clipboard.html"
-                                data-i18n="ClipBoard">Glosasire</a></li>
-                        <li class="pc-item"><a class="pc-link" href="../forms/form2_nouislider.html"
-                                data-i18n="Nouislider">Bibliographie - sitiographie</a></li>
-
-                    </ul>
+                <li class="pc-item">
+                    <a href="/dashboard/test-suite" class="pc-link">
+                        <span class="pc-micon">
+                            <i class="bi bi-list-check"></i>
+                        </span>
+                        <span class="pc-mtext">Test Suites</span>
+                    </a>
                 </li>
+
+                <!-- Testing Phases -->
+                <li class="pc-item pc-caption">
+                    <label>Test Phases</label>
+                </li>
+
+                <li class="pc-item">
+                    <a href="/dashboard/test-suite/security" class="pc-link">
+                        <span class="pc-micon">
+                            <i class="bi bi-shield-lock text-danger"></i>
+                        </span>
+                        <span class="pc-mtext">Security Tests</span>
+                        <span class="pc-badge badge bg-danger">14</span>
+                    </a>
+                </li>
+
+                <li class="pc-item">
+                    <a href="/dashboard/test-suite/compliance" class="pc-link">
+                        <span class="pc-micon">
+                            <i class="bi bi-clipboard-check text-info"></i>
+                        </span>
+                        <span class="pc-mtext">Compliance Tests</span>
+                        <span class="pc-badge badge bg-success">✓</span>
+                    </a>
+                </li>
+
+                <li class="pc-item">
+                    <a href="/dashboard/test-suite/correctness" class="pc-link">
+                        <span class="pc-micon">
+                            <i class="bi bi-check2-square text-primary"></i>
+                        </span>
+                        <span class="pc-mtext">Correctness Tests</span>
+                        <span class="pc-badge badge bg-primary">Running</span>
+                    </a>
+                </li>
+
+                <li class="pc-item">
+                    <a href="/dashboard/test-suite/performance" class="pc-link">
+                        <span class="pc-micon">
+                            <i class="bi bi-speedometer2 text-warning"></i>
+                        </span>
+                        <span class="pc-mtext">Performance Tests</span>
+                    </a>
+                </li>
+
+                <!-- Configuration -->
+                <li class="pc-item pc-caption">
+                    <label>Configuration</label>
+                </li>
+
+                <li class="pc-item">
+                    <a href="/dashboard/settings/endpoints" class="pc-link">
+                        <span class="pc-micon">
+                            <i class="bi bi-globe"></i>
+                        </span>
+                        <span class="pc-mtext">API Endpoints</span>
+                    </a>
+                </li>
+
+                <li class="pc-item">
+                    <a href="/dashboard/settings/environments" class="pc-link">
+                        <span class="pc-micon">
+                            <i class="bi bi-layers"></i>
+                        </span>
+                        <span class="pc-mtext">Environments</span>
+                    </a>
+                </li>
+
+                <li class="pc-item">
+                    <a href="/dashboard/schedule" class="pc-link">
+                        <span class="pc-micon">
+                            <i class="bi bi-calendar-event"></i>
+                        </span>
+                        <span class="pc-mtext">Scheduled Tests</span>
+                    </a>
+                </li>
+
             </ul>
 
             {% if !user.is_paying_customer() %}

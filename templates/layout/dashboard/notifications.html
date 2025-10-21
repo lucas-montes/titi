@@ -1,0 +1,172 @@
+<li class="dropdown pc-h-item">
+    <a class="pc-head-link head-link-secondary dropdown-toggle arrow-none me-0 position-relative"
+        data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="false" aria-expanded="false">
+        <i class="ti ti-bell"></i>
+        <span class="badge bg-danger rounded-pill position-absolute top-0 start-100 translate-middle">3</span>
+    </a>
+    <div class="dropdown-menu dropdown-notification dropdown-menu-end pc-h-dropdown" style="width: 380px;">
+        <div class="dropdown-header d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">Alerts & Notifications <span class="badge bg-danger rounded-pill ms-1">3</span></h5>
+            <a href="#!" class="link-primary text-decoration-none small">Mark all read</a>
+        </div>
+
+        <!-- Critical Alerts Section -->
+        <div class="px-3 py-2 bg-light-danger border-bottom">
+            <small class="text-danger fw-bold"><i class="ti ti-alert-triangle me-1"></i>CRITICAL ALERTS</small>
+        </div>
+
+        <div class="dropdown-header px-0 text-wrap header-notification-scroll position-relative"
+            style="max-height: calc(100vh - 215px)" data-simplebar="init">
+            <div class="simplebar-wrapper" style="margin: -8px 0px;">
+                <div class="simplebar-height-auto-observer-wrapper">
+                    <div class="simplebar-height-auto-observer"></div>
+                </div>
+                <div class="simplebar-mask">
+                    <div class="simplebar-offset" style="right: 0px; bottom: 0px;">
+                        <div class="simplebar-content-wrapper" tabindex="0" role="region"
+                            aria-label="scrollable content" style="height: auto; overflow: hidden;">
+                            <div class="simplebar-content" style="padding: 8px 0px;">
+                                <div class="list-group list-group-flush w-100">
+
+                                    <!-- Critical: Security Test Failures -->
+                                    <div class="list-group-item list-group-item-action border-start border-danger border-3">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0">
+                                                <div class="user-avtar bg-danger"><i class="ti ti-shield-x"></i></div>
+                                            </div>
+                                            <div class="flex-grow-1 ms-2">
+                                                <div class="d-flex align-items-start justify-content-between">
+                                                    <h6 class="mb-1">Security Test Failures</h6>
+                                                    <span class="text-muted small">5 min ago</span>
+                                                </div>
+                                                <p class="text-body fs-6 mb-2">14 SQL injection vulnerabilities detected in User API</p>
+                                                <div class="d-flex gap-1">
+                                                    <span class="badge bg-danger">Critical</span>
+                                                    <span class="badge bg-light-dark">Security</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Critical: Authentication Bypass -->
+                                    <div class="list-group-item list-group-item-action border-start border-danger border-3">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0">
+                                                <div class="user-avtar bg-danger"><i class="ti ti-lock-open"></i></div>
+                                            </div>
+                                            <div class="flex-grow-1 ms-2">
+                                                <div class="d-flex align-items-start justify-content-between">
+                                                    <h6 class="mb-1">Authentication Bypass Detected</h6>
+                                                    <span class="text-muted small">12 min ago</span>
+                                                </div>
+                                                <p class="text-body fs-6 mb-2">Weak JWT validation allows token manipulation</p>
+                                                <div class="d-flex gap-1">
+                                                    <span class="badge bg-danger">Critical</span>
+                                                    <span class="badge bg-light-dark">Authentication</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Warning: Performance Degradation -->
+                                    <div class="list-group-item list-group-item-action border-start border-warning border-3">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0">
+                                                <div class="user-avtar bg-warning"><i class="ti ti-speedometer"></i></div>
+                                            </div>
+                                            <div class="flex-grow-1 ms-2">
+                                                <div class="d-flex align-items-start justify-content-between">
+                                                    <h6 class="mb-1">Performance Degradation</h6>
+                                                    <span class="muted small">28 min ago</span>
+                                                </div>
+                                                <p class="text-body fs-6 mb-2">Average response time increased to 2.8s (threshold: 1s)</p>
+                                                <div class="d-flex gap-1">
+                                                    <span class="badge bg-warning">Warning</span>
+                                                    <span class="badge bg-light-dark">Performance</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="px-3 py-2 bg-light border-top border-bottom mt-2">
+                                        <small class="text-muted fw-bold"><i class="ti ti-bell me-1"></i>RECENT NOTIFICATIONS</small>
+                                    </div>
+
+                                    <!-- Info: Test Completed -->
+                                    <div class="list-group-item list-group-item-action">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0">
+                                                <div class="user-avtar bg-success"><i class="ti ti-check"></i></div>
+                                            </div>
+                                            <div class="flex-grow-1 ms-2">
+                                                <div class="d-flex align-items-start justify-content-between">
+                                                    <h6 class="mb-1">Compliance Tests Passed</h6>
+                                                    <span class="text-muted small">1 hour ago</span>
+                                                </div>
+                                                <p class="text-body fs-6 mb-0">All OpenAPI compliance tests completed successfully (A+ score)</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item list-group-item-action">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0">
+                                                <div class="user-avtar bg-light-primary"><i class="ti ti-mailbox"></i>
+                                                </div>
+                                            </div>
+                                            <div class="flex-grow-1 ms-1"><span class="float-end text-muted">5 min
+                                                    ago</span>
+                                                <h5>Check Your Mail.</h5>
+                                                <p class="text-body fs-6">All done! Now check your inbox as you're in
+                                                    for a sweet treat!</p><button class="btn btn-sm btn-primary">Mail <i
+                                                        class="ti ti-brand-telegram"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item list-group-item-action">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0"><img src="../assets/images/user/avatar-1.jpg"
+                                                    alt="user-image" class="user-avtar"></div>
+                                            <div class="flex-grow-1 ms-1"><span class="float-end text-muted">8 min
+                                                    ago</span>
+                                                <h5>John Doe</h5>
+                                                <p class="text-body fs-6">Uploaded two file on &nbsp; <strong>21 Jan
+                                                        2020</strong></p>
+                                                <div class="notification-file d-flex p-3 bg-light-secondary rounded"><i
+                                                        class="ti ti-arrow-bar-to-down"></i>
+                                                    <h5 class="m-0">demo.jpg</h5>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="list-group-item list-group-item-action">
+                                        <div class="d-flex">
+                                            <div class="flex-shrink-0"><img src="../assets/images/user/avatar-3.jpg"
+                                                    alt="user-image" class="user-avtar"></div>
+                                            <div class="flex-grow-1 ms-1"><span class="float-end text-muted">10 min
+                                                    ago</span>
+                                                <h5>Joseph William</h5>
+                                                <p class="text-body fs-6">It is a long established fact that a reader
+                                                    will be distracted</p>
+                                                <div class="badge rounded-pill bg-light-success">Confirmation of Account
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="simplebar-placeholder" style="width: 0px; height: 0px;"></div>
+            </div>
+            <div class="simplebar-track simplebar-horizontal" style="visibility: hidden;">
+                <div class="simplebar-scrollbar" style="width: 0px; display: none;"></div>
+            </div>
+            <div class="simplebar-track simplebar-vertical" style="visibility: hidden;">
+                <div class="simplebar-scrollbar" style="height: 0px; display: none;"></div>
+            </div>
+        </div>
+        <div class="dropdown-divider"></div>
+        <div class="text-center py-2"><a href="#!" class="link-primary">Mark as all read</a></div>
+    </div>
+</li>

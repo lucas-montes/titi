@@ -35,19 +35,19 @@ pub const CSP: ContentSecurityPolicy<'static> = ContentSecurityPolicy {
     script_src: Cow::Borrowed(
         "'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com https://challenges.cloudflare.com",
     ),
-    script_src_attr: Cow::Borrowed("'self'"),
+    script_src_attr: Cow::Borrowed("'self' 'unsafe-hashes'"),
     script_src_elem: Cow::Borrowed(
-        "'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com https://challenges.cloudflare.com 'sha256-YpkVwgje1aO9XrJNyzcGQAECa/MK8XpN8s0LJ7VZqOc='",
+        "'self' https://unpkg.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://code.jquery.com https://challenges.cloudflare.com 'sha256-YpkVwgje1aO9XrJNyzcGQAECa/MK8XpN8s0LJ7VZqOc=' 'sha256-wO9/YiVvvFYKfhfsNjHZA3MkQhTz8W7MV9wFEdTNHP8=' 'sha256-u/6IAePoKeLn7yKgppkixEUUGPftRUY5XarwphH4OWA=' 'sha256-bWvwt1kqwx6+1OLGwETVGtoGf99B4az6CLpPtjmq4XE=' 'sha256-uHAx33BX/V1CXQkQ1bv6Ye3ZapqiZ81s6DxH8fqyOc4='",
     ),
     // NOTE: 'unsafe-hashes' allows hashes for event handlers and style attributes
     style_src: Cow::Borrowed(
         "'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com",
     ),
     style_src_attr: Cow::Borrowed(
-        "'self' 'unsafe-hashes' 'sha256-biLFinpqYMtWHmXfkA1BPeCY0/fNt46SAZ+BBk5YUog=' 'sha256-hP0ISKcRz40G33clBjx741T6tbj1HTLiD63Kt3dHg0w=' 'sha256-u2Yctlkg1MQj7vO+nL13o9rBQFOBaGRouQGeAzNGvTc='",
+        "'self' 'unsafe-hashes' 'sha256-biLFinpqYMtWHmXfkA1BPeCY0/fNt46SAZ+BBk5YUog=' 'sha256-hP0ISKcRz40G33clBjx741T6tbj1HTLiD63Kt3dHg0w=' 'sha256-u2Yctlkg1MQj7vO+nL13o9rBQFOBaGRouQGeAzNGvTc=' 'sha256-wedAagVGmy5Yu77EIUr+ef8lxqcy6Os/UyFq+ZDDB7o=' 'sha256-8gF21csQ4qeV/ZE3tho1N1P5zeGJ6e6N3K0Y5KU5Eas=' 'sha256-Me+0qsmODl9NAZSdTljs1+7j0sShz+U2hWOR//JGbh0=' 'sha256-w+uGU1wwxz2eo1tX54eWDaGGRsG3jwdbNiqZVR6s2uA=' 'sha256-ysu4kz3viHcMq18cHiJ7iS4a3ML8obZjxS2ejiKT47E=' 'sha256-eARFct61EylCvIfQuUQu1OZA8h7eJvSIa9M3ebb5uJA=' 'sha256-CLC1c4VNJL2uHK1VjQZNRXp2weHQdHTmDXMOlGGxhas=' 'sha256-2EA12+9d+s6rrc0rkdIjfmjbh6p2o0ZSXs4wbZuk/tA=' 'sha256-fTSNtSIktGhitxPAqTp5/WFv/eHDMEdQSM94bm2GL5w=' 'sha256-+7shjGMzKo5tzDsPcF3K6ZIZlzvE9E9zOiWiSzKjbh0=' 'sha256-C82c7tBEEimqSaZyL0VT3yXk5pvsaOjwZH6T+IvPCpE=' 'sha256-s7Jbt2iVKScn19bYfh3U5kM6Nuy42B9GvIZzc0l4pS8=' 'sha256-kpUZYMaCb92v60Wk8bJmW9HUcL0QUIp0oRPVLUg1ckc=' 'sha256-HzJAZ0iYlehU9oowuc4mL4B5oMu1xZhTj9Uv2MLrq84=' 'sha256-cb/4s2poPUvIr4GY39QqifxBdwuNzJa+A/pyx9mo+i0=' 'sha256-c90w6TFz+K4SkTDe+9p866CkUZyZEIgzQm8P0HBDadc=' 'sha256-b/s1++VItJvEnZ5kj0t5giTcvdbQrz+Xj04P4/0ckAU=' 'sha256-IOWYPccv4+GIAWz50PQ4hgBzwty+G8ckj9XrN5jdx6g=' 'sha256-hWFDCsd01INgKZATtnNmxKvFmqJ41aYlvjn6S6IeBW8=' 'sha256-NjYDAvf3Yswi9GqXn8q5mE3okYa3Q4PuzJ0DkAhe4yQ=' 'sha256-2v45m16Zom+oK2TtTcJY+szaesAYhdXY6R5Z282p7pE=' 'sha256-73uNzxKntFn/DtVnEIUbutr5HIvkj1uAw/3gfX+jJQ8=' 'sha256-WJKicgQ+eScMkZiwZRdDEFNfpHS7hwJ+gGWIVC/ymIY=' 'sha256-xVEK7gcaeJAqZHgUjP0ktYmyVcW5brxPqD47mQeu5uw=' 'sha256-c4tDLLDQ1B0Ls+XIkqmORJWQCZ+pIdv9CnHDlfw5otA=' 'sha256-OShiAjSV3lAIOBSclt31Fojewx+uXVNt3v1TfMdz520=' 'sha256-z/JfPWZgPJvGuwZaa/FMvEw1R3/Q7Zf+WYeybn4dTOQ=' 'sha256-TuFENwSfPqkgcx1buF2Kr8jrk73OCy0EjKG+gUSrygU=' 'sha256-vBOzc3Pj55jioMIsAMlosbrlh4AtvKGJYUOTJBlREMs=' 'sha256-jFYqAZz3K7fwtDz0oDN+EYwHjORdb2pmOjjjePIhQR8=' 'sha256-AxTCQK6EZEOY9u3uW/YKPqu+T1aH0UOpDJm/YaEc0ZY=' 'sha256-Do1hZ7J1z5h1z0x4Lln9dkUzMOkFaJaL01Opa447kcM=' 'sha256-rUttUyi4zkWsDoVte8B8PfnT3HuR36RyLG9TMk3r/Bw='",
     ),
     style_src_elem: Cow::Borrowed(
-        "'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com 'sha256-bsV5JivYxvGywDAZ22EZJKBFip65Ng9xoJVLbBg7bdo='",
+        "'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://fonts.googleapis.com 'sha256-bsV5JivYxvGywDAZ22EZJKBFip65Ng9xoJVLbBg7bdo=' 'sha256-HgfNXHMfocj7T+6Sf8drepfYA1mLM/fgAlgSFRaSHCI=' 'sha256-N9YYUEhxqoRWOg8r6hNcajPLxKHXTifLIy6ykPVyU1E=' 'sha256-SSGCrClQA5HDwURccGOBm8CCOfMt1gmANv5KkeZERXs=' 'sha256-vPVXKObmqb7tOFKmg/fCzGZLurO5wqxUQ95EbaaZZm0='",
     ),
     trusted_types: Cow::Borrowed(""),
     worker_src: Cow::Borrowed("'none'"),
