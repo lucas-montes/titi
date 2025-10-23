@@ -1,12 +1,11 @@
-use std::{borrow::Cow, fmt};
+use std::borrow::Cow;
 
 use axum::{Json, Router, response::IntoResponse, routing::get};
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use stefn::{
     askama::Template,
-    create_error_templates,
     state::WebsiteState,
     website::meta_tags::{ContentSecurityPolicy, Meta},
 };

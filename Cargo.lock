@@ -1048,6 +1048,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "fuzzer"
+version = "0.1.0"
+dependencies = [
+ "rand 0.9.2",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
+ "tracing-appender",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "generic-array"
 version = "0.14.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"

@@ -7,7 +7,7 @@ edition = "2024"
 stefn = { path = "../stefn" }
 #stefn = { git = "https://github.com/lucas-montes/stefn" }
 
-tokio = { version = "1.38.0", features = ["full"] }
+tokio = { workspace = true}
 tokio-util = { version = "0.7.4", features = ["compat"] }
 futures = "0.3.30"
 
@@ -18,13 +18,13 @@ axum = { version = "0.8.1", features = ["multipart", "json", "query", "http2", "
 utoipa = { version = "5.3.0", features = ["axum_extras", "chrono", "decimal"] }
 utoipa-scalar = { version = "0.3", features = ["axum"] }
 
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
-tracing-appender = "0.2"
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
 
 chrono = "0.4.23"
-serde = { version = "1.0.163", features = ["derive"] }
-serde_json = { version = "1.0.132", features = ["std"] }
+serde = { workspace = true }
+serde_json = { workspace = true }
 
 sqlx = { version = "0.8.3", features = ["sqlite", "runtime-tokio", "tls-rustls", "postgres"]}
 
@@ -36,3 +36,21 @@ validator = { version = "0.19", features = ["derive"] }
 
 base64 = "0.22.1"
 async-stripe = { version = "0.39.1", features = ["runtime-tokio-hyper-rustls"] }
+
+[workspace]
+members = ["fuzzer"]
+
+
+[workspace.dependencies]
+# Benchmarking
+criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
+pprof = { version = "0.14.0", features = ["flamegraph", "criterion"] }
+
+tokio = { version = "1.38.0", features = ["full"] }
+
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing-appender = "0.2"
+
+serde = { version = "1.0.163", features = ["derive"] }
+serde_json = { version = "1.0.132", features = ["std"] }
