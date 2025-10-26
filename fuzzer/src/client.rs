@@ -1,9 +1,9 @@
 use reqwest::Client as ReqwestClient;
-use tokio::sync::{mpsc, watch};
-use tokio::task::JoinHandle;
-use tokio::time::{Duration, Instant, interval, sleep};
-
-use crate::metrics::{MetricsAggregator, RequestMetrics};
+use tokio::sync::mpsc;
+use tokio::time::{Duration, Instant};
+use std::sync::Arc;
+use crate::planner::Case;
+use crate::executor::VUserMetrics;
 
 /// Categorized request errors (zero-allocation)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
