@@ -23,6 +23,7 @@
         rust-bin-custom = pkgs.rust-bin.stable.latest.default.override {
           extensions = ["rust-src"];
         };
+
       in {
         devShells.default = pkgs.mkShell {
           buildInputs = [
@@ -53,6 +54,7 @@
             sqlx database create
             sqlx migrate run --source migrations/principal
           '';
+
         };
       }
     );

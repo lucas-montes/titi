@@ -1,0 +1,51 @@
+{
+  "id": "load-001",
+  "name": "Peak Traffic Load Test",
+  "description": "Simulates peak traffic with gradual ramp-up",
+  "spec": {
+    "type": "openapi",
+    "data": {
+      "version": "3.0.1",
+      "content": "openapi: 3.0.0..."
+    }
+  },
+  "target": {
+    "base_url": "https://api.example.com",
+    "environment": "production"
+  },
+  "execution": {
+    "concurrent_requests": 100,
+    "requests_per_second": 1000,
+    "timeout_seconds": 60,
+    "max_duration_seconds": 1800,
+    "retry_on_failure": false
+  },
+  "phases": [
+    {
+      "type": "happy_path",
+      "test_count": 5
+    },
+    {
+      "type": "performance",
+      "pattern": {
+        "ramp_up": {
+          "from": 10,
+          "to": 500,
+          "duration_seconds": 300
+        }
+      },
+      "virtual_users": 500,
+      "duration_seconds": 1200
+    }
+  ],
+  "advanced": {
+    "save_responses": false,
+    "verify_ssl": true,
+    "variables": {
+      "TEST_USER": "loadtest@example.com",
+      "RATE_LIMIT": "1000"
+    },
+    "random_seed": 42
+  },
+  "tags": ["performance", "load-test", "production"]
+}

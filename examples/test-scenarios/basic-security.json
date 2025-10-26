@@ -1,0 +1,51 @@
+{
+  "id": "security-001",
+  "name": "Basic Security Audit",
+  "description": "Tests common security vulnerabilities",
+  "spec": {
+    "type": "openapi",
+    "data": {
+      "version": "3.0.1",
+      "content": "openapi: 3.0.0\ninfo:\n  title: User API\n  version: 1.0.0\npaths:\n  /users:\n    get:\n      summary: List users\n      parameters:\n        - name: limit\n          in: query\n          schema:\n            type: integer\n            minimum: 1\n            maximum: 100"
+    }
+  },
+  "target": {
+    "base_url": "https://api.example.com",
+    "environment": "staging",
+    "auth": {
+      "type": "bearer",
+      "token": "your-api-token-here"
+    },
+    "headers": {
+      "X-Client-Version": "1.0.0"
+    }
+  },
+  "execution": {
+    "concurrent_requests": 10,
+    "requests_per_second": 50,
+    "timeout_seconds": 30,
+    "retry_on_failure": true,
+    "retry_count": 2,
+    "retry_delay_ms": 500
+  },
+  "phases": [
+    {
+      "type": "security",
+      "attacks": [
+        "sql_injection",
+        "xss_reflected",
+        "xss_stored",
+        "path_traversal",
+        "command_injection"
+      ],
+      "use_wordlists": true
+    }
+  ],
+  "advanced": {
+    "save_responses": true,
+    "max_response_size_mb": 5,
+    "follow_redirects": true,
+    "verify_ssl": true
+  },
+  "tags": ["security", "sql-injection", "xss"]
+}

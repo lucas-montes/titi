@@ -1,0 +1,462 @@
+{% extends "layout/dashboard/index.html" %}
+
+{% block title %}Upload Test Scenario{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">Upload Test Scenario</h1>
+            <p class="text-muted">Upload a JSON configuration file to start a new test</p>
+        </div>
+        <div>
+            <a href="/dashboard/test-suite" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-2"></i>Back to Test Suite
+            </a>
+        </div>
+    </div>
+
+    <!-- Alert for feedback -->
+    <div id="alertContainer"></div>
+
+    <!-- Active Test Runs -->
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Active Test Runs</h5>
+            <button class="btn btn-sm btn-primary" onclick="refreshRuns()">
+                <i class="bi bi-arrow-clockwise me-1"></i>Refresh
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="activeRuns" class="table-responsive">
+                <div class="text-center py-5 text-muted">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">Loading active runs...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Upload Form -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Upload Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form id="uploadForm" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="scenarioFile" class="form-label">JSON Configuration File</label>
+                            <input type="file" class="form-control" id="scenarioFile" accept=".json" required>
+                            <div class="form-text">
+                                Upload a JSON file with test scenario configuration
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Preview</label>
+                            <pre id="jsonPreview" class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto;">
+                                <code id="jsonContent" class="text-muted">No file selected</code>
+                            </pre>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary" id="uploadBtn">
+                                <i class="bi bi-cloud-upload me-2"></i>Upload & Start Test
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                                <i class="bi bi-x-circle me-2"></i>Clear
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Example Scenarios -->
+        <div class="col-lg-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Example Scenarios</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-3">Click on an example to load it into the upload form</p>
+
+                    <div class="list-group">
+                        <a href="#" class="list-group-item list-group-item-action" onclick="loadExample('basic-security'); return false;">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Basic Security Test</h6>
+                                <small class="text-muted">Security</small>
+                            </div>
+                            <p class="mb-1 small">Tests for common security vulnerabilities like SQL injection and XSS</p>
+                            <small class="text-muted">Attacks: SQL injection, XSS, Path traversal, Command injection</small>
+                        </a>
+
+                        <a href="#" class="list-group-item list-group-item-action" onclick="loadExample('load-test'); return false;">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Peak Traffic Load Test</h6>
+                                <small class="text-muted">Performance</small>
+                            </div>
+                            <p class="mb-1 small">Simulates peak traffic with gradual ramp-up pattern</p>
+                            <small class="text-muted">Pattern: Ramp-up from 10 to 500 virtual users</small>
+                        </a>
+                    </div>
+
+                    <div class="mt-4">
+                        <h6>Quick Actions</h6>
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-outline-primary btn-sm" onclick="downloadTemplate()">
+                                <i class="bi bi-download me-2"></i>Download Empty Template
+                            </button>
+                            <a href="/dashboard/test-suite" class="btn btn-outline-secondary btn-sm">
+                                <i class="bi bi-book me-2"></i>View Documentation
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Real-time Updates -->
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Real-time Test Updates</h5>
+        </div>
+        <div class="card-body">
+            <div id="eventLog" style="max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.875rem;">
+                <div class="text-muted">Connecting to WebSocket...</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let ws = null;
+    let isConnected = false;
+
+    // Initialize WebSocket connection
+    function initWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/api/v1/fuzzer/ws`;
+
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            isConnected = true;
+            logEvent('info', 'WebSocket connected');
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleTestEvent(data);
+            } catch (e) {
+                console.error('Failed to parse WebSocket message:', e);
+            }
+        };
+
+        ws.onerror = (error) => {
+            logEvent('error', 'WebSocket error: ' + error);
+        };
+
+        ws.onclose = () => {
+            isConnected = false;
+            logEvent('warning', 'WebSocket disconnected. Reconnecting in 5 seconds...');
+            setTimeout(initWebSocket, 5000);
+        };
+    }
+
+    // Handle test events from WebSocket
+    function handleTestEvent(event) {
+        switch (event.event) {
+            case 'Started':
+                logEvent('success', `Test started: ${event.data.scenario_name} (${event.data.run_id})`);
+                refreshRuns();
+                break;
+            case 'Progress':
+                logEvent('info', `Progress: ${event.data.progress_percent.toFixed(1)}% - ${event.data.metrics.completed_requests}/${event.data.metrics.total_requests} requests`);
+                updateRunProgress(event.data.run_id, event.data.progress_percent, event.data.metrics);
+                break;
+            case 'Completed':
+                logEvent('success', `Test completed: ${event.data.run_id} - Success rate: ${event.data.metrics.success_rate.toFixed(2)}%`);
+                refreshRuns();
+                break;
+            case 'Failed':
+                logEvent('error', `Test failed: ${event.data.run_id} - ${event.data.error}`);
+                refreshRuns();
+                break;
+            case 'Stopped':
+                logEvent('warning', `Test stopped: ${event.data.run_id}`);
+                refreshRuns();
+                break;
+            case 'VulnerabilityFound':
+                logEvent('error', `Vulnerability found in ${event.data.endpoint}: ${event.data.vulnerability_type} (${event.data.severity})`);
+                break;
+        }
+    }
+
+    // Log event to the event log
+    function logEvent(type, message) {
+        const log = document.getElementById('eventLog');
+        const timestamp = new Date().toLocaleTimeString();
+        const colors = {
+            info: 'text-primary',
+            success: 'text-success',
+            warning: 'text-warning',
+            error: 'text-danger'
+        };
+
+        const entry = document.createElement('div');
+        entry.className = `mb-1 ${colors[type] || 'text-muted'}`;
+        entry.textContent = `[${timestamp}] ${message}`;
+
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    // File input change handler
+    document.getElementById('scenarioFile').addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const json = JSON.parse(text);
+
+            document.getElementById('jsonContent').textContent = JSON.stringify(json, null, 2);
+        } catch (error) {
+            showAlert('danger', 'Invalid JSON file: ' + error.message);
+            document.getElementById('jsonContent').textContent = 'Invalid JSON';
+        }
+    });
+
+    // Form submit handler
+    document.getElementById('uploadForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const fileInput = document.getElementById('scenarioFile');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            showAlert('warning', 'Please select a file');
+            return;
+        }
+
+        try {
+            const text = await file.text();
+            const scenario = JSON.parse(text);
+
+            // Upload scenario
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading...';
+
+            const response = await fetch('/api/v1/fuzzer/scenarios', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ scenario })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                showAlert('success', `Scenario uploaded successfully! Starting test...`);
+
+                // Start the test immediately
+                // Note: In a real implementation, we'd use the control plane to start the test
+                // For now, we're simulating it
+                logEvent('info', `Starting test for scenario: ${scenario.name}`);
+
+                setTimeout(() => {
+                    clearForm();
+                    refreshRuns();
+                }, 1000);
+            } else {
+                showAlert('danger', result.error || 'Failed to upload scenario');
+            }
+        } catch (error) {
+            showAlert('danger', 'Error: ' + error.message);
+        } finally {
+            const uploadBtn = document.getElementById('uploadBtn');
+            uploadBtn.disabled = false;
+            uploadBtn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Upload & Start Test';
+        }
+    });
+
+    // Load example scenario
+    async function loadExample(exampleName) {
+        try {
+            const response = await fetch(`/examples/test-scenarios/${exampleName}.json`);
+            const json = await response.json();
+
+            // Create a File object
+            const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+            const file = new File([blob], `${exampleName}.json`, { type: 'application/json' });
+
+            // Update file input (note: this is tricky, we'll just update the preview)
+            document.getElementById('jsonContent').textContent = JSON.stringify(json, null, 2);
+
+            showAlert('info', `Loaded example: ${exampleName}`);
+        } catch (error) {
+            showAlert('danger', 'Failed to load example: ' + error.message);
+        }
+    }
+
+    // Clear form
+    function clearForm() {
+        document.getElementById('uploadForm').reset();
+        document.getElementById('jsonContent').textContent = 'No file selected';
+    }
+
+    // Show alert
+    function showAlert(type, message) {
+        const alertContainer = document.getElementById('alertContainer');
+        const alert = document.createElement('div');
+        alert.className = `alert alert-${type} alert-dismissible fade show`;
+        alert.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        alertContainer.appendChild(alert);
+
+        setTimeout(() => alert.remove(), 5000);
+    }
+
+    // Refresh active runs
+    async function refreshRuns() {
+        try {
+            const response = await fetch('/api/v1/fuzzer/runs');
+            const runs = await response.json();
+
+            const container = document.getElementById('activeRuns');
+
+            if (runs.length === 0) {
+                container.innerHTML = '<p class="text-muted text-center py-4">No active test runs</p>';
+                return;
+            }
+
+            let html = '<table class="table table-hover"><thead><tr>';
+            html += '<th>Run ID</th><th>Scenario</th><th>Status</th><th>Progress</th><th>Started</th><th>Actions</th>';
+            html += '</tr></thead><tbody>';
+
+            runs.forEach(run => {
+                const statusColors = {
+                    Queued: 'secondary',
+                    Running: 'primary',
+                    Paused: 'warning',
+                    Completed: 'success',
+                    Failed: 'danger',
+                    Stopped: 'secondary'
+                };
+
+                html += '<tr>';
+                html += `<td><code>${run.run_id}</code></td>`;
+                html += `<td>${run.scenario_name}</td>`;
+                html += `<td><span class="badge bg-${statusColors[run.status]}">${run.status}</span></td>`;
+                html += `<td>
+                    <div class="progress" style="height: 20px;">
+                        <div class="progress-bar" role="progressbar" style="width: ${run.progress_percent}%"
+                             id="progress-${run.run_id}">
+                            ${run.progress_percent.toFixed(0)}%
+                        </div>
+                    </div>
+                </td>`;
+                html += `<td><small>${new Date(run.started_at).toLocaleString()}</small></td>`;
+                html += `<td>
+                    <button class="btn btn-sm btn-danger" onclick="stopRun('${run.run_id}')">
+                        <i class="bi bi-stop-fill"></i>
+                    </button>
+                </td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            container.innerHTML = html;
+        } catch (error) {
+            console.error('Failed to refresh runs:', error);
+        }
+    }
+
+    // Update run progress
+    function updateRunProgress(runId, progress, metrics) {
+        const progressBar = document.getElementById(`progress-${runId}`);
+        if (progressBar) {
+            progressBar.style.width = `${progress}%`;
+            progressBar.textContent = `${progress.toFixed(0)}%`;
+        }
+    }
+
+    // Stop a test run
+    async function stopRun(runId) {
+        if (!confirm('Are you sure you want to stop this test?')) return;
+
+        try {
+            const response = await fetch(`/api/v1/fuzzer/runs/${runId}/stop`, {
+                method: 'POST'
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                showAlert('success', 'Test stopped successfully');
+                refreshRuns();
+            } else {
+                showAlert('danger', result.error || 'Failed to stop test');
+            }
+        } catch (error) {
+            showAlert('danger', 'Error: ' + error.message);
+        }
+    }
+
+    // Download template
+    function downloadTemplate() {
+        const template = {
+            id: "example-001",
+            name: "My Test Scenario",
+            description: "Description of the test",
+            spec: {
+                type: "openapi",
+                data: {
+                    version: "3.0.1",
+                    content: "openapi: 3.0.0..."
+                }
+            },
+            target: {
+                base_url: "https://api.example.com",
+                environment: "staging"
+            },
+            execution: {
+                concurrent_requests: 10,
+                requests_per_second: 100,
+                timeout_seconds: 30
+            },
+            phases: [],
+            tags: []
+        };
+
+        const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'template.json';
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+        initWebSocket();
+        refreshRuns();
+        setInterval(refreshRuns, 10000); // Refresh every 10 seconds
+    });
+</script>
+{% endblock %}

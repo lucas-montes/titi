@@ -60,6 +60,7 @@ pub fn routes(state: WebsiteState) -> Router<WebsiteState> {
         .route("/test-suite/compliance", get(test_suite_compliance))
         .route("/test-suite/correctness", get(test_suite_correctness))
         .route("/test-suite/performance", get(test_suite_performance))
+        .route("/test-suite/upload", get(test_suite_upload))
         .route("/api/test-runs", get(api_test_runs))
         .route("/api/test-metrics", get(api_test_metrics))
         .route("/api/performance-data", get(api_performance_data))
@@ -270,6 +271,27 @@ async fn test_suite_performance() -> HtmlResult {
         email: "admin".into(),
     };
     let template = PerformanceTestTemplate { meta, user };
+    template_to_response(&template)
+}
+
+#[derive(Template)]
+#[template(path = "dashboard/test-suite/upload.html")]
+struct UploadScenarioTemplate<'a> {
+    meta: Meta<'a>,
+    user: User,
+}
+
+async fn test_suite_upload() -> HtmlResult {
+    let meta = Meta {
+        meta_title: "Upload Test Scenario - JobyJoba".into(),
+        csp_policy: CSP,
+        ..Default::default()
+    };
+    let user = User {
+        username: "admin".into(),
+        email: "admin".into(),
+    };
+    let template = UploadScenarioTemplate { meta, user };
     template_to_response(&template)
 }
 

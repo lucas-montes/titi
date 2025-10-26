@@ -7,6 +7,8 @@ edition = "2024"
 stefn = { path = "../stefn" }
 #stefn = { git = "https://github.com/lucas-montes/stefn" }
 
+fuzzer = { path = "fuzzer" }
+
 tokio = { workspace = true}
 tokio-util = { version = "0.7.4", features = ["compat"] }
 futures = "0.3.30"
@@ -22,7 +24,7 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
 
-chrono = "0.4.23"
+chrono = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
@@ -54,3 +56,5 @@ tracing-appender = "0.2"
 
 serde = { version = "1.0.163", features = ["derive"] }
 serde_json = { version = "1.0.132", features = ["std"] }
+
+chrono = "0.4.23"

@@ -1051,7 +1051,9 @@ dependencies = [
 name = "fuzzer"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "rand 0.9.2",
+ "reqwest 0.12.24",
  "serde",
  "serde_json",
  "tokio",
@@ -3759,6 +3761,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "futures",
+ "fuzzer",
  "oauth2",
  "serde",
  "serde_json",
