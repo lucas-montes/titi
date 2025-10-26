@@ -1,4 +1,3 @@
-use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::mpsc;
 use reqwest::Client as ReqwestClient;
@@ -6,22 +5,20 @@ use crate::planner::{Case, RequestTemplate, Method};
 
 /// Virtual User - dumb worker that executes requests from a case
 /// - Share-nothing architecture (each VUser is independent)
-/// - Shares HttpClient via Arc (reqwest uses connection pooling internally)
+/// - Shares HttpClient (reqwest::Client already uses Arc internally for connection pooling)
 /// - Sends metrics upstream to Executor
-/// - Can have per-VUser rate limiting
+/// - All VUsers have rate limiter (0.0 = unlimited to avoid branches)
 pub struct VirtualUser {
     pub id: usize,
-    http_client: Arc<HttpClient>,
+    http_client: ReqwestClient,
     metrics_tx: mpsc::Sender<VUserMetrics>,
-    rate_limiter: Option<RateLimiter>,
-}
-
-/// HTTP Client wrapper (shared via Arc across VUsers)
-pub struct HttpClient {
-    client: ReqwestClient,
+    rate_limiter: RateLimiter,
+    /// Number of parallel requests this VUser should execute (1 = sequential)
+    parallel_requests: usize,
 }
 
 /// Per-VUser rate limiter
+/// Uses 0.0 for unlimited to avoid Option and branching
 pub struct RateLimiter {
     requests_per_second: f64,
     last_request: Option<Instant>,
@@ -41,20 +38,18 @@ pub struct VUserMetrics {
 impl VirtualUser {
     pub fn new(
         id: usize,
-        http_client: Arc<HttpClient>,
+        http_client: ReqwestClient,
         metrics_tx: mpsc::Sender<VUserMetrics>,
+        requests_per_second: f64, // 0.0 = unlimited
+        parallel_requests: usize,  // 1 = sequential
     ) -> Self {
         Self {
             id,
             http_client,
             metrics_tx,
-            rate_limiter: None,
+            rate_limiter: RateLimiter::new(requests_per_second),
+            parallel_requests,
         }
-    }
-
-    pub fn with_rate_limit(mut self, rps: f64) -> Self {
-        self.rate_limiter = Some(RateLimiter::new(rps));
-        self
     }
 
     /// Execute the test case
@@ -63,47 +58,59 @@ impl VirtualUser {
         let template = &case.request_template;
 
         loop {
-            // Apply rate limiting if configured
-            if let Some(limiter) = &mut self.rate_limiter {
-                limiter.wait().await;
-            }
+            // Apply rate limiting (0.0 = unlimited, no branch needed)
+            self.rate_limiter.wait().await;
 
-            // Execute request and collect metrics
-            let metrics = self.execute_request(template).await;
+            if self.parallel_requests == 1 {
+                // Sequential execution (most common case)
+                let metrics = self.execute_request(template).await;
+                if self.metrics_tx.try_send(metrics).is_err() {
+                    break;
+                }
+            } else {
+                // Parallel execution: spawn N requests concurrently
+                let mut handles = Vec::with_capacity(self.parallel_requests);
 
-            // Send metrics upstream (non-blocking)
-            if self.metrics_tx.try_send(metrics).is_err() {
-                // Channel full or closed - stop executing
-                break;
+                for _ in 0..self.parallel_requests {
+                    let client = self.http_client.clone();
+                    let template = template.clone();
+                    let vuser_id = self.id;
+
+                    handles.push(tokio::spawn(async move {
+                        Self::execute_request_static(vuser_id, &client, &template).await
+                    }));
+                }
+
+                // Wait for all requests to complete
+                for handle in handles {
+                    if let Ok(metrics) = handle.await {
+                        if self.metrics_tx.try_send(metrics).is_err() {
+                            // Channel full or closed - stop executing
+                            return;
+                        }
+                    }
+                }
             }
         }
     }
 
     async fn execute_request(&self, template: &RequestTemplate) -> VUserMetrics {
+        Self::execute_request_static(self.id, &self.http_client, template).await
+    }
+
+    /// Static version for parallel execution
+    async fn execute_request_static(
+        vuser_id: usize,
+        client: &ReqwestClient,
+        template: &RequestTemplate,
+    ) -> VUserMetrics {
         let start = Instant::now();
 
-        // Build request
-        let request = match template.method {
-            Method::Get => self.http_client.client.get(&template.url),
-            Method::Post => self.http_client.client.post(&template.url),
-            Method::Put => self.http_client.client.put(&template.url),
-            Method::Delete => self.http_client.client.delete(&template.url),
-            Method::Patch => self.http_client.client.patch(&template.url),
-        };
-
-        // Add headers
-        let mut request = request;
-        for (key, value) in &template.headers {
-            request = request.header(key, value);
-        }
-
-        // Add body if present
-        if let Some(body) = &template.body {
-            request = request.body(body.clone());
-        }
+        // Build request using From trait
+        let request_builder = template.to_request_builder(client);
 
         // Execute
-        let result = request.send().await;
+        let result = request_builder.send().await;
         let elapsed = start.elapsed();
 
         match result {
@@ -112,7 +119,7 @@ impl VirtualUser {
                 let success = response.status().is_success();
 
                 VUserMetrics {
-                    vuser_id: self.id,
+                    vuser_id,
                     timestamp: start,
                     status_code: Some(status),
                     response_time: elapsed,
@@ -122,7 +129,7 @@ impl VirtualUser {
             }
             Err(err) => {
                 VUserMetrics {
-                    vuser_id: self.id,
+                    vuser_id,
                     timestamp: start,
                     status_code: None,
                     response_time: elapsed,
@@ -130,18 +137,6 @@ impl VirtualUser {
                     error: Some(err.to_string()),
                 }
             }
-        }
-    }
-}
-
-impl HttpClient {
-    pub fn new() -> Self {
-        Self {
-            client: ReqwestClient::builder()
-                .pool_max_idle_per_host(100)
-                .timeout(std::time::Duration::from_secs(30))
-                .build()
-                .expect("Failed to create HTTP client"),
         }
     }
 }
@@ -155,6 +150,11 @@ impl RateLimiter {
     }
 
     async fn wait(&mut self) {
+        // 0.0 = unlimited, skip waiting entirely (branch predictor friendly)
+        if self.requests_per_second <= 0.0 {
+            return;
+        }
+
         if let Some(last) = self.last_request {
             let min_interval = std::time::Duration::from_secs_f64(1.0 / self.requests_per_second);
             let elapsed = last.elapsed();
@@ -166,4 +166,13 @@ impl RateLimiter {
 
         self.last_request = Some(Instant::now());
     }
+}
+
+/// Helper to create HTTP client with optimal settings
+pub fn create_http_client() -> ReqwestClient {
+    ReqwestClient::builder()
+        .pool_max_idle_per_host(100)
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .expect("Failed to create HTTP client")
 }

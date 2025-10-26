@@ -1,385 +1,551 @@
 # Elerem Fuzzer
 
-High-performance API testing and fuzzing framework inspired by K6, built in Rust with advanced test generation algorithms.
+High-performance API testing and fuzzing framework inspired by K6, built in Rust with advanced test generation algorit│  │  struct VirtualUser {                                                                 │ │
+│  │    id: usize,                              // VUser identifier                       │ │
+│  │    http_client: reqwest::Client,           // Shared (Client uses Arc internally)    │ │
+│  │    metrics_tx: mpsc::Sender<VUserMetrics>, // Channel to send metrics to Executor    │ │
+│  │    rate_limiter: RateLimiter,              // Always present (0.0 = unlimited)       │ │
+│  │    parallel_requests: usize,               // 1 = sequential, N = parallel           │ │
+│  │  }                                                                                    │ │---
 
-## Architecture Overview
-
-The fuzzer is built with 5 distinct layers, each with clear responsibilities:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         1. CONFIGURATION                          │
-│  User input: JSON, YAML, logs, manual entry                      │
-│  • Base URLs, auth, scenarios                                    │
-│  • High-level test objectives                                    │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         2. PLANNER                                │
-│  Test case generation with algorithms:                           │
-│  • IPOG-C: T-wise testing with constraints                       │
-│  • T-wise Adaptive: Dynamic coverage                             │
-│  • Boundary analysis, edge cases                                 │
-│  Iterator-based lazy generation                                  │
-└────────────────────────┬────────────────────────────────────────┘
-                         │
-                         │ Iterator<Item = Case>
-                         ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                         3. SCHEDULER                              │
-│  Test orchestration & metrics hub:                               │
-│  • Polls cases from Planner                                      │
-│  • Manages parallel/sequential execution                         │
-│  • Owns MetricsHub (Stream + Recorder)                           │
-│  • Provides feedback to adaptive planners                        │
-│  • WebSocket communication to website                            │
-└─────┬──────────────────────────────┬────────────────────────────┘
-      │                              │
-      │ spawn Executor               │ MetricsHub
-      │                              │ ├─ MetricsStream (WebSocket, 60s history)
-      ▼                              │ └─ MetricsRecorder (persistent storage)
-┌─────────────────────────────────┐  │
-│       4. EXECUTOR               │  │
-│  Manages single test case:      │  │
-│  • Spawns N Virtual Users       │  │
-│  • Enforces assertions          │  │
-│  • Checks stopping conditions   │  │
-│  • Aggregates VUser metrics     │  │
-│  • Sends snapshots upstream ────┼──┘
-└─────┬───────────────────────────┘
-      │
-      │ spawn VUser (x N)
-      ▼
-┌─────────────────────────────────┐
-│       5. VIRTUAL USERS          │
-│  Dumb workers:                  │
-│  • Share-nothing architecture   │
-│  • Shared HttpClient (Arc)      │
-│  • Per-VUser rate limiting      │
-│  • Sends metrics upstream       │
-└─────────────────────────────────┘
-```
-
-## Data Flow
-
-### Forward Flow: Configuration → Execution
+## Complete Architecture Diagram
 
 ```
-Config ──→ Planner ──→ Scheduler ──→ Executor ──→ VirtualUser
-                                         │              │
-                                         │              │ HTTP
-                                         │              ▼
-                                         │           [API]
-                                         │              │
-                                         │              │ Metrics
-                                         │◀─────────────┘
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                                    USER / WEBSITE                                           │
+│  Provides JSON/YAML config → Receives real-time metrics via WebSocket                      │
+└────────────────────────────────┬──────────────────────────────────▲───────────────────────┘
+                                 │                                  │
+                                 │ Config                           │ GlobalSnapshot
+                                 │ {base_url, auth, scenarios}      │ (WebSocket stream)
+                                 ▼                                  │
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              LAYER 1: CONFIGURATION                                         │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────┐ │
+│  │  Parse and validate user input                                                        │ │
+│  │  • JSON/YAML/manual entry                                                             │ │
+│  │  • Extract parameters for test generation                                             │ │
+│  │  • Validate auth, URLs, scenarios                                                     │ │
+│  └───────────────────────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────┬────────────────────────────────────────────────────────────┘
+                                 │ Configuration
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              LAYER 2: PLANNER                                               │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────┐ │
+│  │  trait TestPlanner: Iterator<Item = Case>                                            │ │
+│  │                                                                                       │ │
+│  │  Algorithms (pick one):                                                              │ │
+│  │  ┌─────────────────┐  ┌─────────────────┐  ┌──────────────────┐  ┌────────────────┐│ │
+│  │  │ IPOG            │  │ IPOG-C          │  │ T-wise Adaptive  │  │ Boundary       ││ │
+│  │  │ Combinatorial   │  │ With constraints│  │ Dynamic coverage │  │ Edge cases     ││ │
+│  │  │ testing         │  │ handling        │  │ adjustment       │  │ analysis       ││ │
+│  │  └─────────────────┘  └─────────────────┘  └──────────────────┘  └────────────────┘│ │
+│  │                                                                                       │ │
+│  │  fn next() -> Option<Case>     ◄───────────────┐                                     │ │
+│  │  fn feedback(PlannerFeedback)  ◄───────────────┼─ Adaptive feedback loop            │ │
+│  │                                                 │   (adjust tests based on results)  │ │
+│  │  Generates:                                     │                                     │ │
+│  │  Case {                                         │                                     │ │
+│  │    id: String,                                  │                                     │ │
+│  │    request_template: RequestTemplate,           │                                     │ │
+│  │    executor_type: ExecutorType,                 │                                     │ │
+│  │    assertions: Vec<Assertion>,                  │                                     │ │
+│  │    stopping_conditions: Vec<StoppingCondition>  │                                     │ │
+│  │  }                                              │                                     │ │
+│  └───────────────────────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────┬────────────────────────────────────────────────────────────┘
+                                 │ Iterator<Item = Case>
+                                 │ (lazy generation, one at a time)
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              LAYER 3: SCHEDULER                                             │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────┐ │
+│  │  Orchestrates everything                                                              │ │
+│  │                                                                                       │ │
+│  │  Main loop:                                                                           │ │
+│  │  1. Poll planner.next() → get Case                                                   │ │
+│  │  2. Create HttpClient (shared connection pool)                                  │ │
+│  │  3. Spawn tokio task: Executor::new(case, http_client, metrics_tx).run()            │ │
+│  │  4. Receive ExecutorSnapshot via mpsc channel                                        │ │
+│  │  5. Update MetricsHub (aggregate, stream, record)                                    │ │
+│  │  6. Check global stopping conditions                                                 │ │
+│  │  7. Send feedback to adaptive planners ──────────────────────────────────────────────┼─┐│
+│  │                                                                                       │ ││
+│  │  Owns:                                                                                │ ││
+│  │  ┌──────────────────────────────────────────────────────────────────────┐            │ ││
+│  │  │ MetricsHub                                                            │            │ ││
+│  │  │  ├─ MetricsStream:  WebSocket server, broadcasts GlobalSnapshot      │───────────┼─┼┤
+│  │  │  │                  Keeps 60s circular buffer (120 snapshots @ 2/s)   │           │ ││
+│  │  │  │                                                                     │           │ ││
+│  │  │  └─ MetricsRecorder: Persistent storage (DB/File/Memory)             │           │ ││
+│  │  │                      Buffered writes (flush every 100 snapshots)     │           │ ││
+│  │  └──────────────────────────────────────────────────────────────────────┘            │ ││
+│  └───────────────────────────────────────────────────────────────────────────────────────┘ ││
+└────────────────────────────────┬────────────────────────────────────────────────────────────┘│
+                                 │ spawn multiple executors                                    │
+                                 │ (parallel or sequential based on config)                    │
+                                 ▼                                                             │
+┌─────────────────────────────────────────────────────────────────────────────────────────────┤
+│                              LAYER 4: EXECUTOR                                              │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────┐ │
+│  │  Manages single Case with N VirtualUsers                                              │ │
+│  │                                                                                       │ │
+│  │  Initialization:                                                                      │ │
+│  │  1. Parse ExecutorType (SingleShot/ConstantVus/RampingVus/ConstantArrivalRate)      │ │
+│  │  2. Spawn N VirtualUsers based on type                                               │ │
+│  │  3. Create mpsc channel for VUserMetrics                                             │ │
+│  │                                                                                       │ │
+│  │  Execution Loop (every 1 second):                                                    │ │
+│  │  1. Collect VUserMetrics from channel                                                │ │
+│  │  2. Aggregate:                                                                        │ │
+│  │     • Count: total_requests, successful, failed                                      │ │
+│  │     • Calculate: current RPS                                                         │ │
+│  │     • Store response_times in VecDeque (for percentiles)                             │ │
+│  │     • Calculate p50, p95, p99                                                        │ │
+│  │  3. Check Assertions (defined in Case):                                              │ │
+│  │     • StatusCode(200) → check most common status                                     │ │
+│  │     • P95ResponseTime(100ms) → calculate_percentile(0.95) <= 100ms                  │ │
+│  │     • SuccessRate(0.99) → (successful / total) >= 0.99                              │ │
+│  │     • ErrorRate(0.05) → (failed / total) <= 0.05                                    │ │
+│  │     → If any fail: return Err("Assertion failed")                                    │ │
+│  │  4. Check StoppingConditions (defined in Case):                                      │ │
+│  │     • FailureRate(0.15) → (failed / total) >= 0.15                                  │ │
+│  │     • ConsecutiveErrors(50) → consecutive_errors >= 50                              │ │
+│  │     • P95ResponseTime(5s) → p95 > 5s                                                │ │
+│  │     → If any match: return Ok(()) (graceful stop)                                    │ │
+│  │  5. Send ExecutorSnapshot to Scheduler via metrics_tx                               │ │
+│  │                                                                                       │ │
+│  │  ExecutorSnapshot sent to Scheduler:                                                 │ │
+│  │  {                                                                                    │ │
+│  │    case_id: "login-test",                                                            │ │
+│  │    timestamp: Instant::now(),                                                        │ │
+│  │    total_requests: 1523,                                                             │ │
+│  │    successful: 1520,                                                                 │ │
+│  │    failed: 3,                                                                        │ │
+│  │    current_rps: 25.4,                                                                │ │
+│  │    p50: 45ms, p95: 87ms, p99: 152ms,                                                │ │
+│  │    active_vusers: 10                                                                 │ │
+│  │  }                                                                                    │ │
+│  └───────────────────────────────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────┬────────────────────────────────────────────────────────────┘
+                                 │ spawn N VirtualUsers
+                                 │ (tokio tasks)
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────────────────────────┐
+│                              LAYER 5: VIRTUAL USERS                                         │
+│  ┌───────────────────────────────────────────────────────────────────────────────────────┐  │
+│  │  Dumb workers executing HTTP requests                                                 │  │
+│  │                                                                                       │  │
+│  │  struct VirtualUser {                                                                 │  │
+│  │    id: usize,                              // VUser identifier                        │  │
+│  │    http_client: HttpClient,           // connection pooling                           │  │
+│  │    metrics_tx: mpsc::Sender<VUserMetrics>, // Channel to send metrics to Executor     │  │
+│  │    rate_limiter: RateLimiter       // Per-VUser rate limiting                         │  │
+│  │  }                                                                                    │  │
+│  │                                                                                       │  │
+│  │  Execution Loop (infinite until stopped):                                             │  │
+│  │  ┌──────────────────────────────────────────────────────────────────────────────┐   │ │
+│  │  │ 1. Apply rate limiter (if configured)                                        │   │ │
+│  │  │    → Wait if needed to maintain requests_per_second                          │   │ │
+│  │  │                                                                               │   │ │
+│  │  │ 2. Build HTTP request from RequestTemplate:                                  │   │ │
+│  │  │    // Use efficient to_request_builder() method                             │   │ │
+│  │  │    let request = template.to_request_builder(&http_client);                 │   │ │
+│  │  │    // Handles: method, headers, body, query_params                          │   │ │
+│  │  │                                                                               │   │ │
+│  │  │ 3. Execute request:                                                           │   │ │
+│  │  │    let start = Instant::now();                                               │   │ │
+│  │  │    let result = request.send().await;  ────────────────────────────────┐    │   │ │
+│  │  │    let elapsed = start.elapsed();                                      │    │   │ │
+│  │  │                                                                          │    │   │ │
+│  │  │ 4. Collect metrics:                                                      │    │   │ │
+│  │  │    let metrics = VUserMetrics {                                          │    │   │ │
+│  │  │      vuser_id: self.id,                                                  │    │   │ │
+│  │  │      timestamp: start,                                                   │    │   │ │
+│  │  │      status_code: result.ok().map(|r| r.status().as_u16()),            │    │   │ │
+│  │  │      response_time: elapsed,                                             │    │   │ │
+│  │  │      success: result.is_ok() && status.is_success(),                    │    │   │ │
+│  │  │      error: result.err().map(|e| e.to_string())                         │    │   │ │
+│  │  │    };                                                                     │    │   │ │
+│  │  │                                                                          │    │   │ │
+│  │  │ 5. Send metrics upstream:                                                │    │   │ │
+│  │  │    metrics_tx.try_send(metrics)?;                                        │    │   │ │
+│  │  │    → If channel full or closed, stop VUser                               │    │   │ │
+│  │  │                                                                          │    │   │ │
+│  │  │ 6. Loop back to step 1                                                   │    │   │ │
+│  │  └──────────────────────────────────────────────────────────────────────────────┘   │ │
+│  │                                                                          │            │ │
+│  │  Key Design:                                                             │            │ │
+│  │  • SHARE-NOTHING: Each VUser is completely independent                   │            │ │
+│  │  • No shared mutable state between VUsers                                │            │ │
+│  │  • HttpClient cloned (reqwest::Client uses Arc internally)              │            │ │
+│  │  • RateLimiter always present (0.0 = unlimited, avoids branches)        │            │ │
+│  │  • Parallel requests: Each VUser can spawn N concurrent requests        │            │ │
+│  │  • Metrics sent via owned message passing (mpsc channel)                 │            │ │
+│  │  • No locks, no mutexes, no contention                                   │            │ │
+│  └───────────────────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┬───────────────────────────────┘
+                                                              │ HTTP
+                                                              ▼
+                                                    ┌──────────────────┐
+                                                    │   TARGET API     │
+                                                    │  (Under Test)    │
+                                                    └──────────────────┘
 ```
 
-### Metrics Flow: VUser → Website
+---
+
+## Data Flow Details
+
+### Metrics Flow (Bottom-Up)
 
 ```
-VirtualUser ──→ Executor ──→ Scheduler ──→ MetricsHub ──┬──→ MetricsStream ──→ WebSocket ──→ Website
-                                                         │
-                                                         └──→ MetricsRecorder ──→ Storage
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                          METRICS AGGREGATION HIERARCHY                                  │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+
+LEVEL 1: VUserMetrics (Individual Request)
+┌──────────────────────────────────────────────────────────────────┐
+│ VirtualUser #1                VirtualUser #2    ...    VUser #N  │
+│      │                              │                      │      │
+│      │ VUserMetrics                 │                      │      │
+│      │ {                            │                      │      │
+│      │   vuser_id: 1,               │                      │      │
+│      │   timestamp: Instant,        │                      │      │
+│      │   status_code: Some(200),    │                      │      │
+│      │   response_time: 45ms,       │                      │      │
+│      │   success: true,             │                      │      │
+│      │   error: None                │                      │      │
+│      │ }                            │                      │      │
+│      └──────────────────────────────┴──────────────────────┘      │
+│                                │                                  │
+│                    mpsc::Sender<VUserMetrics>                     │
+│                    Capacity: 10,000 messages                      │
+│                    Bounded to prevent memory explosion            │
+│                                │                                  │
+└────────────────────────────────┼──────────────────────────────────┘
+                                 ▼
+
+LEVEL 2: ExecutorSnapshot (Per-Case Aggregation)
+┌──────────────────────────────────────────────────────────────────┐
+│ Executor (Case "login-test")                                     │
+│      │                                                            │
+│      │ Aggregation every 1 second:                               │
+│      │ • Collect all VUserMetrics from channel                   │
+│      │ • Count: total_requests, successful, failed               │
+│      │ • Calculate: current_rps = requests / elapsed_time        │
+│      │ • Store: response_times in VecDeque<Duration>             │
+│      │ • Calculate: p50, p95, p99 from sorted response_times     │
+│      │                                                            │
+│      │ ExecutorSnapshot {                                        │
+│      │   case_id: "login-test",                                  │
+│      │   timestamp: Instant::now(),                              │
+│      │   total_requests: 1523,                                   │
+│      │   successful: 1520,                                       │
+│      │   failed: 3,                                              │
+│      │   current_rps: 25.4,                                      │
+│      │   p50: 45ms,                                              │
+│      │   p95: 87ms,                                              │
+│      │   p99: 152ms,                                             │
+│      │   active_vusers: 10                                       │
+│      │ }                                                          │
+│      └────────────────────────────────────────────────────────────┤
+│                                │                                  │
+│                    mpsc::Sender<ExecutorSnapshot>                 │
+│                    Capacity: 10,000 messages                      │
+│                                │                                  │
+└────────────────────────────────┼──────────────────────────────────┘
+                                 ▼
+
+LEVEL 3: GlobalSnapshot (Cross-Case Aggregation)
+┌──────────────────────────────────────────────────────────────────┐
+│ Scheduler (MetricsHub)                                           │
+│      │                                                            │
+│      │ Aggregation:                                              │
+│      │ • Receive ExecutorSnapshots from all executors            │
+│      │ • Store in Vec<ExecutorSnapshot>                          │
+│      │ • Calculate global totals:                                │
+│      │   - total_requests = sum(executor.total_requests)         │
+│      │   - total_successful = sum(executor.successful)           │
+│      │   - total_failed = sum(executor.failed)                   │
+│      │   - overall_rps = sum(executor.current_rps)               │
+│      │                                                            │
+│      │ GlobalSnapshot {                                          │
+│      │   timestamp: Instant::now(),                              │
+│      │   executors: [                                            │
+│      │     ExecutorSnapshot { case_id: "login-test", ... },      │
+│      │     ExecutorSnapshot { case_id: "search-test", ... },     │
+│      │     ...                                                   │
+│      │   ],                                                       │
+│      │   total_requests: 5234,                                   │
+│      │   total_successful: 5201,                                 │
+│      │   total_failed: 33,                                       │
+│      │   overall_rps: 87.2                                       │
+│      │ }                                                          │
+│      │                                                            │
+│      ├──────────────────────────────────────────────────┐        │
+│      │                                                   │        │
+│      ▼                                                   ▼        │
+│ MetricsStream                               MetricsRecorder      │
+│ • Broadcast to WebSocket clients            • Buffer snapshots   │
+│ • Keep 60s circular buffer                  • Flush every 100    │
+│ • Send GlobalSnapshot @ 2/sec               • Write to:          │
+│                                              - Database (SQLite)  │
+│                                              - File (JSONL)       │
+│                                              - Memory (testing)   │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-### Feedback Loop: Adaptive Planning
+### Feedback Loop (Adaptive Planning)
 
 ```
-                    ┌─────────────────┐
-                    │   PlannerFeedback│
-                    └────────▲─────────┘
-                             │
-Planner ──→ Scheduler ───────┘
-   │            │
-   │ cases      │ results
-   └────→───────┘
+┌───────────────────────────────────────────────────────────────────────────┐
+│                         ADAPTIVE FEEDBACK CYCLE                           │
+└───────────────────────────────────────────────────────────────────────────┘
+
+  Planner                     Scheduler                    Executor
+     │                            │                            │
+     │ 1. next() → Case           │                            │
+     ├───────────────────────────►│                            │
+     │                            │                            │
+     │                            │ 2. spawn(case)             │
+     │                            ├───────────────────────────►│
+     │                            │                            │
+     │                            │                            │ 3. Execute
+     │                            │                            │    with N VUsers
+     │                            │                            │
+     │                            │                            │ 4. Collect metrics
+     │                            │                            │    & validate
+     │                            │                            │
+     │                            │ 5. ExecutorSnapshot        │
+     │                            │◄───────────────────────────┤
+     │                            │    {success/failure,       │
+     │                            │     failure_rate,          │
+     │                            │     p95_response_time}     │
+     │                            │                            │
+     │ 6. feedback()              │                            │
+     │    PlannerFeedback {       │                            │
+     │      case_id,              │                            │
+     │      success: bool,        │                            │
+     │      failure_rate: 0.02,   │                            │
+     │      response_time_p95     │                            │
+     │    }                       │                            │
+     │◄───────────────────────────┤                            │
+     │                            │                            │
+     │ 7. Adjust strategy:        │                            │
+     │    • If high failure:      │                            │
+     │      generate similar      │                            │
+     │      cases to explore      │                            │
+     │    • If successful:        │                            │
+     │      reduce coverage       │                            │
+     │      in that area          │                            │
+     │                            │                            │
+     │ 8. next() → Adjusted Case  │                            │
+     ├───────────────────────────►│                            │
+     │                            │                            │
+     └────────────────────────────┴────────────────────────────┘
+
+Example: T-wise Adaptive Planner
+• Initial: Generate all 2-way parameter combinations (IPOG)
+• Feedback: Case with {auth=oauth, endpoint=/users} failed 15%
+• Adjustment: Generate more 3-way combinations involving oauth + /users
+• Result: Increased coverage in problematic areas, reduced elsewhere
 ```
 
-## Core Components
-
-### 1. Configuration
-
-User-facing configuration in any format (JSON, YAML, etc.):
-
-```rust
-pub struct Config {
-    pub base_url: String,
-    pub auth: AuthConfig,
-    pub scenarios: Vec<Scenario>,
-}
-```
-
-### 2. Planner
-
-Generates test cases using advanced algorithms. Implements `Iterator<Item = Case>` for lazy generation:
-
-```rust
-pub trait TestPlanner: Iterator<Item = Case> {
-    fn update(&mut self, feedback: PlannerFeedback);
-}
-
-pub struct Case {
-    pub id: String,
-    pub request_template: RequestTemplate,
-    pub executor_type: ExecutorType,
-    pub assertions: Vec<Assertion>,
-    pub stopping_conditions: Vec<StoppingCondition>,
-}
-```
-
-**Test Generation Algorithms:**
-- **IPOG (In-Parameter-Order-General)**: Efficient t-way combinatorial testing
-- **IPOG-C**: IPOG with constraint handling for complex systems
-- **T-wise Adaptive**: Dynamically adjusts coverage based on runtime behavior
-- **Boundary Value Analysis**: Edge cases and boundary testing
-- **Constraint-Based**: Custom rules and relationships
-
-### 3. Scheduler
-
-Orchestrates test execution and manages metrics infrastructure:
-
-```rust
-pub struct Scheduler<P: TestPlanner> {
-    planner: P,
-    metrics_hub: Arc<MetricsHub>,
-    config: SchedulerConfig,
-}
-```
-
-**Responsibilities:**
-- Poll cases from Planner (lazy iteration)
-- Spawn Executors for each case
-- Manage parallel vs sequential execution
-- Own MetricsHub (coordinate streaming and recording)
-- Provide feedback to adaptive planners
-- Global stopping condition enforcement
-
-### 4. Executor
-
-Manages a single test case with N virtual users:
-
-```rust
-pub struct Executor {
-    case: Case,
-    http_client: Arc<HttpClient>,
-    metrics_collector: MetricsCollector,
-    vuser_handles: Vec<JoinHandle<()>>,
-    metrics_tx: mpsc::Sender<ExecutorSnapshot>,
-}
-```
-
-**Responsibilities:**
-- Spawn and manage VUsers based on ExecutorType
-- Enforce case-level assertions
-- Check stopping conditions
-- Aggregate VUser metrics
-- Calculate percentiles (p50, p95, p99)
-- Send snapshots to Scheduler
-
-**Executor Types:**
-- `SingleShot { count }`: One-time execution with N VUsers
-- `ConstantVus { vus, duration }`: Constant load
-- `RampingVus { stages }`: Gradual load increase/decrease
-
-### 5. Virtual Users
-
-Dumb workers that execute requests:
-
-```rust
-pub struct VirtualUser {
-    id: usize,
-    http_client: Arc<HttpClient>,
-    metrics_tx: mpsc::Sender<VUserMetrics>,
-    rate_limiter: Option<RateLimiter>,
-}
-```
-
-**Characteristics:**
-- Share-nothing architecture (independent execution)
-- Shared `HttpClient` via Arc (connection pooling handled by reqwest)
-- Per-VUser or global rate limiting
-- Sends metrics upstream after each request
-
-## Metrics Architecture
-
-### MetricsHub
-
-Central coordinator for metrics streaming and recording:
-
-```rust
-pub struct MetricsHub {
-    snapshot_tx: mpsc::Sender<ExecutorSnapshot>,
-    stream: MetricsStream,
-    recorder: MetricsRecorder,
-    global_metrics: Arc<RwLock<GlobalMetrics>>,
-}
-```
-
-### MetricsStream
-
-Real-time streaming to WebSocket clients:
-- Maintains recent history (60 seconds)
-- Broadcasts to connected clients
-- Low-latency updates (sub-second)
-
-### MetricsRecorder
-
-Persistent storage of metrics:
-- Buffered writes for performance
-- Multiple storage backends:
-  - Database (SQLite, PostgreSQL)
-  - File (JSONL, Parquet)
-  - Memory (for testing)
-  - None (disable recording)
-
-## Validation System
-
-### Assertions
-
-Rules that **must** be satisfied for the test to pass:
-
-```rust
-pub enum Assertion {
-    StatusCode(u16),                    // Expected status code
-    P95ResponseTime(Duration),          // 95th percentile max
-    SuccessRate(f64),                   // Minimum success rate (0.0-1.0)
-    ErrorRate(f64),                     // Maximum error rate (0.0-1.0)
-    MinRps(f64),                        // Minimum requests/second
-    MaxRps(f64),                        // Maximum requests/second
-}
-```
-
-### Stopping Conditions
-
-Conditions that trigger **early termination**:
-
-```rust
-pub enum StoppingCondition {
-    FailureRate(f64),                   // Stop if failure rate exceeds threshold
-    ConsecutiveErrors(usize),           // Stop after N consecutive errors
-    P95ResponseTime(Duration),          // Stop if p95 exceeds threshold
-    TotalRequests(usize),               // Stop after N total requests
-}
-```
-
-**Ownership:**
-- **Case**: Defines rules (declarative)
-- **Executor**: Enforces rules (runtime checking)
-- **Scheduler**: Handles global conditions (across all executors)
-
-## Example Usage
-
-```rust
-use fuzzer::{Config, Planner, Scheduler};
-
-#[tokio::main]
-async fn main() {
-    // 1. Load configuration
-    let config = Config::from_file("test-config.json").await?;
-
-    // 2. Create planner with IPOG algorithm
-    let planner = IpogPlanner::new(config);
-
-    // 3. Create scheduler
-    let scheduler = Scheduler::new(planner, SchedulerConfig {
-        enable_streaming: true,
-        enable_recording: true,
-        storage: StorageConfig::Database("results.db".into()),
-        parallel_execution: true,
-    });
-
-    // 4. Run tests
-    scheduler.run().await?;
-}
-```
-
-## Test Case Example
-
-```rust
-Case {
-    id: "login-load-test".into(),
-    request_template: RequestTemplate {
-        method: Method::Post,
-        url: "https://api.example.com/login".into(),
-        headers: vec![("Content-Type".into(), "application/json".into())],
-        body: Some(r#"{"email":"test@example.com","password":"test123"}"#.into()),
-    },
-    executor_type: ExecutorType::RampingVus {
-        stages: vec![
-            Stage { duration: Duration::from_secs(10), target_vus: 10 },
-            Stage { duration: Duration::from_secs(30), target_vus: 100 },
-            Stage { duration: Duration::from_secs(10), target_vus: 0 },
-        ],
-    },
-    assertions: vec![
-        Assertion::StatusCode(200),
-        Assertion::P95ResponseTime(Duration::from_millis(200)),
-        Assertion::SuccessRate(0.99),
-    ],
-    stopping_conditions: vec![
-        StoppingCondition::FailureRate(0.15),
-        StoppingCondition::ConsecutiveErrors(50),
-    ],
-}
-```
-
-## Key Design Decisions
-
-### Share-Nothing VUsers
-
-Each VUser is independent with its own state:
-- No shared mutable state between VUsers
-- Simplifies reasoning about concurrency
-- Enables true parallelism without locks
-
-### Shared HttpClient
-
-`reqwest::Client` is shared via `Arc`:
-- Connection pooling handled internally by reqwest
-- Efficient resource usage
-- No performance penalty from sharing
-
-### Iterator-Based Planner
-
-Cases are generated lazily:
-- Memory efficient (no upfront generation)
-- Adaptive planners can adjust based on feedback
-- Supports infinite test generation
-
-### Three-Level Metrics Hierarchy
+### Validation Flow (Assertions & Stopping Conditions)
 
 ```
-VUser → Executor → Scheduler (MetricsHub)
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                            VALIDATION OWNERSHIP                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+CASE (Declarative Rules)
+┌────────────────────────────────────────────────────────────┐
+│ Case {                                                     │
+│   assertions: [                                            │
+│     Assertion::StatusCode(200),                            │
+│     Assertion::P95ResponseTime(Duration::from_millis(100)),│
+│     Assertion::SuccessRate(0.99),  // 99%                  │
+│     Assertion::ErrorRate(0.01),    // 1%                   │
+│   ],                                                        │
+│   stopping_conditions: [                                   │
+│     StoppingCondition::FailureRate(0.15),  // Stop @ 15%   │
+│     StoppingCondition::ConsecutiveErrors(50),              │
+│     StoppingCondition::P95ResponseTime(Duration::from_secs(5)),│
+│     StoppingCondition::TotalRequests(10_000),              │
+│   ],                                                        │
+│ }                                                           │
+└────────────────────────────────────────────────────────────┘
+           │
+           │ Case passed to Executor
+           ▼
+EXECUTOR (Runtime Enforcement)
+┌────────────────────────────────────────────────────────────┐
+│ Every 1 second:                                            │
+│                                                             │
+│ 1. Check all assertions:                                   │
+│    for assertion in case.assertions {                      │
+│      match assertion {                                     │
+│        StatusCode(200) => {                                │
+│          let most_common = status_codes.max_by_key();      │
+│          if most_common != 200 {                           │
+│            return Err("StatusCode assertion failed");      │
+│          }                                                 │
+│        }                                                   │
+│        P95ResponseTime(max) => {                           │
+│          let p95 = calculate_percentile(&times, 0.95);     │
+│          if p95 > max {                                    │
+│            return Err("P95 assertion failed");             │
+│          }                                                 │
+│        }                                                   │
+│        SuccessRate(min) => {                               │
+│          if (successful / total) < min {                   │
+│            return Err("SuccessRate assertion failed");     │
+│          }                                                 │
+│        }                                                   │
+│      }                                                     │
+│    }                                                       │
+│                                                             │
+│ 2. Check stopping conditions:                              │
+│    for condition in case.stopping_conditions {             │
+│      match condition {                                     │
+│        FailureRate(threshold) => {                         │
+│          if (failed / total) >= threshold {                │
+│            return Ok(()); // Graceful stop                 │
+│          }                                                 │
+│        }                                                   │
+│        ConsecutiveErrors(max) => {                         │
+│          if consecutive_errors >= max {                    │
+│            return Ok(()); // Graceful stop                 │
+│          }                                                 │
+│        }                                                   │
+│      }                                                     │
+│    }                                                       │
+│                                                             │
+│ Result:                                                     │
+│ • Assertion fails → Err("...") → Test FAILED              │
+│ • Stopping condition → Ok(()) → Test stopped early        │
+│ • All pass → Continue executing                            │
+└────────────────────────────────────────────────────────────┘
+           │
+           │ ExecutorSnapshot with status
+           ▼
+SCHEDULER (Global Coordination)
+┌────────────────────────────────────────────────────────────┐
+│ When Executor returns:                                     │
+│                                                             │
+│ match executor_result {                                    │
+│   Err(e) => {                                              │
+│     log_error!("Test failed: {}", e);                      │
+│     // Optionally stop all executors                       │
+│     // Send failure notification                           │
+│   }                                                        │
+│   Ok(()) => {                                              │
+│     log_info!("Test stopped early (stopping condition)");  │
+│     // Continue with next case                             │
+│   }                                                        │
+│ }                                                           │
+│                                                             │
+│ Global stopping conditions:                                │
+│ • Total failure rate across ALL cases > threshold          │
+│ • Maximum test duration exceeded                           │
+│ • User cancellation                                        │
+└────────────────────────────────────────────────────────────┘
 ```
 
-- VUser: Individual request metrics
-- Executor: Aggregated case metrics (percentiles, rates)
-- Scheduler: Global metrics across all cases
+---
 
-### Validation Ownership
+## Concurrency Model
 
-- **Case**: Declarative rules (what to check)
-- **Executor**: Runtime enforcement (when to check)
-- **Scheduler**: Global coordination (stop all)
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           TASK HIERARCHY                                │
+└─────────────────────────────────────────────────────────────────────────┘
 
-## Performance Characteristics
+Scheduler (Single tokio task)
+│
+│  Responsibilities:
+│  • Poll planner.next() sequentially
+│  • Spawn executor tasks
+│  • Receive metrics via mpsc channel
+│  • Coordinate MetricsHub
+│  • No locks, no shared mutable state
+│
+├─── Executor 1 (tokio task)
+│    │  Case: "login-test"
+│    │  Manages: 10 VUsers
+│    │
+│    ├─── VUser 1 (tokio task) ─────┐
+│    ├─── VUser 2 (tokio task) ─────┤
+│    ├─── VUser 3 (tokio task) ─────┤ Independent
+│    ├─── VUser 4 (tokio task) ─────┤ No shared
+│    ├─── VUser 5 (tokio task) ─────┤ mutable state
+│    ├─── VUser 6 (tokio task) ─────┤ No locks
+│    ├─── VUser 7 (tokio task) ─────┤ Share-nothing
+│    ├─── VUser 8 (tokio task) ─────┤ architecture
+│    ├─── VUser 9 (tokio task) ─────┤
+│    └─── VUser 10 (tokio task) ────┘
+│         │
+│         └─→ All share HttpClient (read-only, thread-safe)
+│
+├─── Executor 2 (tokio task)
+│    │  Case: "search-test"
+│    │  Manages: 50 VUsers
+│    │
+│    ├─── VUser 1..50 (tokio tasks)
+│
+├─── Executor 3 (tokio task)
+│    │  Case: "checkout-test"
+│    │  Manages: 5 VUsers
+│    │
+│    └─── VUser 1..5 (tokio tasks)
+│
+└─── MetricsHub Task (tokio task)
+     │
+     ├─── MetricsStream Task (WebSocket server)
+     │    • Accept connections
+     │    • Broadcast GlobalSnapshot every 500ms
+     │
+     └─── MetricsRecorder Task (Background flusher)
+          • Flush buffer every 100 snapshots
+          • Write to storage (DB/File)
 
-- **High throughput**: Async I/O with tokio
-- **Low latency**: Lock-free VUser execution
-- **Memory efficient**: Lazy case generation, bounded buffers
-- **Scalable**: Horizontal scaling via multiple executors
+Communication:
+• VUser → Executor: mpsc::Sender<VUserMetrics> (bounded, 10k capacity)
+• Executor → Scheduler: mpsc::Sender<ExecutorSnapshot> (bounded, 10k capacity)
+• Scheduler → MetricsHub: Direct method calls (owns MetricsHub)
 
-## Future Enhancements
+No Locks Required Because:
+• Each VUser has its own state (id, rate_limiter)
+• Metrics sent via owned message passing (mpsc channels)
+• reqwest::Client is thread-safe (uses Arc internally)
+• No shared mutable state anywhere in the system
+```
 
-- [ ] Distributed execution across multiple nodes
-- [ ] Custom JavaScript/Wasm scripting for complex scenarios
-- [ ] Machine learning-based adaptive test generation
-- [ ] Browser-based testing (Playwright integration)
-- [ ] GraphQL and gRPC protocol support
-- [ ] Custom plugin system for metrics exporters
+---
 
-## License
+## Key Optimizations
 
-MIT
+1. **No Arc Wrapper**: `reqwest::Client` already uses Arc internally, so we clone it directly
+2. **Branch-Free Rate Limiting**: RateLimiter always present with 0.0 = unlimited (no `Option<RateLimiter>`)
+3. **Parallel Requests per VUser**: Each VUser can spawn N concurrent requests for higher throughput
+4. **Request Template Caching**: `to_request_builder()` method pre-builds requests efficiently
+5. **Bounded Channels**: Prevent memory explosion with 10k capacity limits
+6. **Lock-Free Architecture**: Zero mutexes, zero contention, pure message passing
+
+---
+
+## Status
+
+**Architecture Complete** - All traits defined, data flows documented, ready for runtime implementation.
+
+**Next Steps:**
+1. Implement IPOG planner algorithm
+2. Complete Scheduler orchestration loop
+3. Implement Executor VUser spawning logic
+4. Build MetricsHub background tasks
+5. Add WebSocket streaming server
+6. Implement storage backends (SQLite, JSONL)
+
+---

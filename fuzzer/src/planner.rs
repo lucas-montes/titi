@@ -46,6 +46,40 @@ pub struct RequestTemplate {
     pub query_params: Vec<(String, String)>,
 }
 
+impl RequestTemplate {
+    /// Convert template to reqwest RequestBuilder
+    /// This avoids doing expensive request building work repeatedly
+    pub fn to_request_builder(&self, client: &reqwest::Client) -> reqwest::RequestBuilder {
+        // Start with method
+        let mut builder = match self.method {
+            Method::Get => client.get(&self.url),
+            Method::Post => client.post(&self.url),
+            Method::Put => client.put(&self.url),
+            Method::Delete => client.delete(&self.url),
+            Method::Patch => client.patch(&self.url),
+            Method::Head => client.head(&self.url),
+            Method::Options => client.request(reqwest::Method::OPTIONS, &self.url),
+        };
+
+        // Add headers
+        for (key, value) in &self.headers {
+            builder = builder.header(key, value);
+        }
+
+        // Add query params
+        if !self.query_params.is_empty() {
+            builder = builder.query(&self.query_params);
+        }
+
+        // Add body if present
+        if let Some(body) = &self.body {
+            builder = builder.body(body.clone());
+        }
+
+        builder
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Method {
     Get,
