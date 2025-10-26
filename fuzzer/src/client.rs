@@ -1,11 +1,9 @@
 use reqwest::Client as ReqwestClient;
-use std::sync::Arc;
-use tokio::sync::mpsc;
-use tokio::task::JoinSet;
-use tokio::time::{Duration, Instant};
+use tokio::sync::{mpsc, watch};
+use tokio::task::JoinHandle;
+use tokio::time::{Duration, Instant, interval, sleep};
 
 use crate::metrics::{MetricsAggregator, RequestMetrics};
-
 
 /// Categorized request errors (zero-allocation)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -42,7 +40,6 @@ impl From<reqwest::Error> for RequestError {
     }
 }
 
-
 impl std::fmt::Display for RequestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = match self {
@@ -58,18 +55,24 @@ impl std::fmt::Display for RequestError {
     }
 }
 
-
-/// HTTP Client wrapper
-struct HttpClient {
-    client: ReqwestClient,
-    max_concurrent: usize,
+/// State of the test controller
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ControllerState {
+    Running,
+    Paused,
+    Stopped,
 }
 
-impl HttpClient {
-    /// Execute a single request and return generic metrics
-    async fn execute<M: RequestMetrics>(&self, url: &str) -> M {
+/// HTTP Client wrapper
+#[derive(Clone)]
+struct HttpClient(ReqwestClient);
+
+impl Client for HttpClient {
+    type Param = &'static str;
+
+    async fn execute<M: RequestMetrics>(&self, param: Self::Param) -> M {
         let start = Instant::now();
-        let response = self.client.get(url).send().await;
+        let response = self.0.get(param).send().await;
 
         match response {
             Ok(resp) => {
@@ -84,17 +87,53 @@ impl HttpClient {
     }
 }
 
+trait Client {
+    type Param;
+    async fn execute<M: RequestMetrics>(&self, param: Self::Param) -> M;
+}
+
+/// Represents a single virtual user executing requests
+struct VirtualUser<M: RequestMetrics, C: Client> {
+    id: u8,
+    client: C,
+    metrics_sender: mpsc::Sender<M>,
+    state_rx: watch::Receiver<ControllerState>,
+}
+
+impl<M: RequestMetrics, C: Client> VirtualUser<M, C> {
+    /// Run the virtual user's request loop
+    async fn run(mut self) {
+        loop {
+            // Check state
+            let state = *self.state_rx.borrow();
+            match state {
+                ControllerState::Stopped => break,
+                ControllerState::Paused => {
+                    // Wait for state change
+                    if self.state_rx.changed().await.is_err() {
+                        break;
+                    }
+                    continue;
+                }
+                ControllerState::Running => {
+                    // Execute request
+                    //TODO: requests might be done in parallel not sequentially
+                    let metrics = self.client.execute::<M>(&self.target_url).await;
+                    let _ = self.metrics_sender.send(metrics).await;
+                }
+            }
+        }
+    }
+}
 
 /// Metrics collector that aggregates results
-struct MetricsCollector<A: MetricsAggregator> {
-    receiver: mpsc::Receiver<A::Request>,
-}
+struct MetricsCollector<A: MetricsAggregator>(mpsc::Receiver<A::Request>);
 
 impl<A: MetricsAggregator> MetricsCollector<A> {
     async fn collect(mut self) -> A {
         let mut aggregator = A::default();
 
-        while let Some(metric) = self.receiver.recv().await {
+        while let Some(metric) = self.0.recv().await {
             aggregator.add(metric);
         }
 
@@ -103,194 +142,14 @@ impl<A: MetricsAggregator> MetricsCollector<A> {
     }
 }
 
-/// Generic test runner with pluggable metrics
-struct TestRunner<A: MetricsAggregator> {
-    client: Arc<HttpClient>,
-    metrics_sender: mpsc::Sender<A::Request>,
-    metrics_collector: Option<MetricsCollector<A>>,
-}
-
-impl<A: MetricsAggregator> TestRunner<A> {
-    /// Execute load test
-    async fn run(&self, url: &str, duration: Duration) {
-        let url = url.to_string();
-        let client = Arc::clone(&self.client);
-        let sender = self.metrics_sender.clone();
-        let max_concurrent = client.max_concurrent;
-
-        let test_handle = tokio::spawn(async move {
-            let end_time = Instant::now() + duration;
-            let mut tasks = JoinSet::new();
-
-            while Instant::now() < end_time {
-                // Backpressure control
-                while tasks.len() >= max_concurrent {
-                    if let Some(result) = tasks.join_next().await {
-                        if let Ok(metrics) = result {
-                            let _ = sender.send(metrics).await;
-                        }
-                    }
-                }
-
-                // Spawn new request
-                let client_clone = Arc::clone(&client);
-                let url_clone = url.clone();
-                tasks.spawn(async move {
-                    client_clone.execute::<A::Request>(&url_clone).await
-                });
-            }
-
-            // Drain remaining tasks
-            while let Some(result) = tasks.join_next().await {
-                if let Ok(metrics) = result {
-                    let _ = sender.send(metrics).await;
-                }
-            }
-        });
-
-        let _ = test_handle.await;
-    }
-
-    /// Finish the test and collect metrics
-    async fn finish(mut self) -> A {
-        // Drop sender to signal completion
-        drop(self.metrics_sender);
-
-        // Collect metrics
-        if let Some(collector) = self.metrics_collector.take() {
-            collector.collect().await
-        } else {
-            A::default()
-        }
-    }
-}
-
-/// Builder for creating test runners
-struct TestRunnerBuilder {
-    max_concurrent: usize,
-    connect_timeout: Duration,
-    user_agent: Option<String>,
-    verify_ssl: bool,
-}
-
-impl TestRunnerBuilder {
-    fn new() -> Self {
-        Self {
-            max_concurrent: 100,
-            connect_timeout: Duration::from_secs(10),
-            user_agent: Some("Fuzzer/1.0".to_string()),
-            verify_ssl: true,
-        }
-    }
-
-    fn max_concurrent(mut self, max: usize) -> Self {
-        self.max_concurrent = max;
-        self
-    }
-
-    fn connect_timeout(mut self, timeout: Duration) -> Self {
-        self.connect_timeout = timeout;
-        self
-    }
-
-    fn user_agent(mut self, ua: impl Into<String>) -> Self {
-        self.user_agent = Some(ua.into());
-        self
-    }
-
-    fn verify_ssl(mut self, verify: bool) -> Self {
-        self.verify_ssl = verify;
-        self
-    }
-
-    /// Build a test runner with specified metrics aggregator type
-    fn build<A: MetricsAggregator>(self) -> Result<TestRunner<A>, String> {
-        let mut builder = ReqwestClient::builder()
-            .connect_timeout(self.connect_timeout)
-            .pool_max_idle_per_host(100)
-            .tcp_nodelay(true)
-            .danger_accept_invalid_certs(!self.verify_ssl);
-
-        if let Some(ua) = self.user_agent {
-            builder = builder.user_agent(ua);
-        }
-
-        let client = builder
-            .build()
-            .map_err(|e| format!("Failed to build client: {}", e))?;
-
-        let http_client = Arc::new(HttpClient {
-            client,
-            max_concurrent: self.max_concurrent,
-        });
-
-        let (tx, rx) = mpsc::channel(10000);
-        let collector = MetricsCollector { receiver: rx };
-
-        Ok(TestRunner {
-            client: http_client,
-            metrics_sender: tx,
-            metrics_collector: Some(collector),
-        })
-    }
-}
-
-impl Default for TestRunnerBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-
-/// Test configuration that bridges config and runner
-struct TestConfig {
-    target_url: String,
-    max_concurrent: usize,
-    timeout: Duration,
-    test_duration: Duration,
-    user_agent: Option<String>,
-    verify_ssl: bool,
-}
-
-impl From<&crate::config::TestScenario> for TestConfig {
-    fn from(scenario: &crate::config::TestScenario) -> Self {
-        let exec = scenario.execution();
-        let target = scenario.target();
-        let advanced = scenario.advanced();
-
-        Self {
-            target_url: target.base_url.clone(),
-            max_concurrent: exec.concurrent_requests,
-            timeout: Duration::from_secs(exec.timeout_seconds),
-            test_duration: Duration::from_secs(exec.max_duration_seconds.unwrap_or(60)),
-            user_agent: advanced.user_agent().map(|s| s.to_string()),
-            verify_ssl: advanced.verify_ssl(),
-        }
-    }
-}
-
-impl TestConfig {
-    /// Build a test runner with the specified metrics type
-    fn build<A: MetricsAggregator>(&self) -> Result<TestRunner<A>, String> {
-        let mut builder = TestRunnerBuilder::new()
-            .max_concurrent(self.max_concurrent)
-            .connect_timeout(self.timeout)
-            .verify_ssl(self.verify_ssl);
-
-        if let Some(ua) = &self.user_agent {
-            builder = builder.user_agent(ua.clone());
-        }
-
-        builder.build()
-    }
-
-    /// Get the target URL
-    fn url(&self) -> &str {
-        &self.target_url
-    }
-
-    /// Get the test duration
-    fn duration(&self) -> Duration {
-        self.test_duration
-    }
+/// Controller that manages virtual users and runtime control
+struct TestController<A: MetricsAggregator> {
+    client: HttpClient,
+    metrics_collector: MetricsCollector<A>,
+    control_tx: mpsc::Sender<ControlCommand>,
+    control_rx: mpsc::Receiver<ControlCommand>,
+    state_tx: watch::Sender<ControllerState>,
+    state_rx: watch::Receiver<ControllerState>,
+    user_handles: Vec<JoinHandle<()>>,
+    next_user_id: u8,
 }
