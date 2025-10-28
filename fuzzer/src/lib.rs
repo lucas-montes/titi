@@ -3,6 +3,7 @@ mod client;
 mod metrics;
 mod planner;
 mod scheduler;
+mod vuser;
 
 // We have 5 layers for the fuzzer
 // the first layer is the configuation that we receive from the user. This can be in asy shape, logs, json, yaml, manually entered, etc...

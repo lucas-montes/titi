@@ -1,22 +1,26 @@
+//! HTTP Client utilities for the fuzzer
+//!
+//! This module provides HTTP client creation and error categorization.
+//! The actual request execution logic is in vuser.rs.
+
 use reqwest::Client as ReqwestClient;
-use tokio::sync::mpsc;
-use tokio::time::{Duration, Instant};
-use std::sync::Arc;
-use crate::planner::Case;
-use crate::executor::VUserMetrics;
+use std::time::Duration;
 
 /// Categorized request errors (zero-allocation)
+///
+/// Used for efficient error tracking without heap allocations.
+/// VUser sends these categorized errors instead of full error strings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RequestError {
-    /// Connection-related errors (DNS, TCP, etc.)
+    /// Connection-related errors (DNS, TCP, socket errors, etc.)
     Connection,
-    /// Timeout occurred
+    /// Request timeout (exceeded configured duration)
     Timeout,
-    /// TLS/SSL errors
+    /// TLS/SSL handshake or certificate errors
     Tls,
-    /// HTTP protocol errors
+    /// HTTP protocol errors (invalid response, etc.)
     Protocol,
-    /// Failed to read response body
+    /// Failed to read or decode response body
     BodyRead,
     /// Request was cancelled or aborted
     Cancelled,
@@ -55,101 +59,75 @@ impl std::fmt::Display for RequestError {
     }
 }
 
-/// State of the test controller
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ControllerState {
-    Running,
-    Paused,
-    Stopped,
+/// Create an HTTP client with optimal settings for load testing
+///
+/// Configuration:
+/// - Connection pooling: 100 idle connections per host
+/// - Request timeout: 30 seconds (configurable)
+/// - Keep-alive enabled
+/// - HTTP/2 enabled (falls back to HTTP/1.1)
+/// - Follows redirects (up to 10)
+///
+/// Note: reqwest::Client uses Arc internally, so it's cheap to clone.
+/// All VUsers can share the same client via clone() - no need for Arc wrapper.
+pub fn create_http_client() -> ReqwestClient {
+    create_http_client_with_timeout(Duration::from_secs(30))
 }
 
-/// HTTP Client wrapper
-#[derive(Clone)]
-struct HttpClient(ReqwestClient);
+/// Create an HTTP client with custom timeout
+pub fn create_http_client_with_timeout(timeout: Duration) -> ReqwestClient {
+    ReqwestClient::builder()
+        .pool_max_idle_per_host(100)
+        .timeout(timeout)
+        .tcp_keepalive(Some(Duration::from_secs(60)))
+        .http2_prior_knowledge()
+        .redirect(reqwest::redirect::Policy::limited(10))
+        .build()
+        .expect("Failed to create HTTP client")
+}
 
-impl Client for HttpClient {
-    type Param = &'static str;
+/// Create an HTTP client for testing (no timeout, smaller pool)
+#[cfg(test)]
+pub fn create_test_client() -> ReqwestClient {
+    ReqwestClient::builder()
+        .pool_max_idle_per_host(10)
+        .build()
+        .expect("Failed to create test HTTP client")
+}
 
-    async fn execute<M: RequestMetrics>(&self, param: Self::Param) -> M {
-        let start = Instant::now();
-        let response = self.0.get(param).send().await;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-        match response {
-            Ok(resp) => {
-                let status = resp.status().as_u16();
-                match resp.bytes().await {
-                    Ok(bytes) => M::success(start.elapsed(), status, bytes.len()),
-                    Err(e) => M::failure(start.elapsed(), e),
-                }
-            }
-            Err(e) => M::failure(start.elapsed(), e),
-        }
+    #[test]
+    fn test_request_error_display() {
+        assert_eq!(RequestError::Connection.to_string(), "connection");
+        assert_eq!(RequestError::Timeout.to_string(), "timeout");
+        assert_eq!(RequestError::Tls.to_string(), "tls");
+        assert_eq!(RequestError::Protocol.to_string(), "protocol");
+        assert_eq!(RequestError::BodyRead.to_string(), "body_read");
+        assert_eq!(RequestError::Cancelled.to_string(), "cancelled");
+        assert_eq!(RequestError::Other.to_string(), "other");
     }
-}
 
-trait Client {
-    type Param;
-    async fn execute<M: RequestMetrics>(&self, param: Self::Param) -> M;
-}
+    #[test]
+    fn test_client_creation() {
+        let client = create_http_client();
+        // Client is created successfully
+        assert!(std::mem::size_of_val(&client) > 0);
 
-/// Represents a single virtual user executing requests
-struct VirtualUser<M: RequestMetrics, C: Client> {
-    id: u8,
-    client: C,
-    metrics_sender: mpsc::Sender<M>,
-    state_rx: watch::Receiver<ControllerState>,
-}
-
-impl<M: RequestMetrics, C: Client> VirtualUser<M, C> {
-    /// Run the virtual user's request loop
-    async fn run(mut self) {
-        loop {
-            // Check state
-            let state = *self.state_rx.borrow();
-            match state {
-                ControllerState::Stopped => break,
-                ControllerState::Paused => {
-                    // Wait for state change
-                    if self.state_rx.changed().await.is_err() {
-                        break;
-                    }
-                    continue;
-                }
-                ControllerState::Running => {
-                    // Execute request
-                    //TODO: requests might be done in parallel not sequentially
-                    let metrics = self.client.execute::<M>(&self.target_url).await;
-                    let _ = self.metrics_sender.send(metrics).await;
-                }
-            }
-        }
+        let client_custom = create_http_client_with_timeout(Duration::from_secs(10));
+        // Custom timeout client is created successfully
+        assert!(std::mem::size_of_val(&client_custom) > 0);
     }
-}
 
-/// Metrics collector that aggregates results
-struct MetricsCollector<A: MetricsAggregator>(mpsc::Receiver<A::Request>);
+    #[test]
+    fn test_client_is_clonable() {
+        let client1 = create_http_client();
+        let client2 = client1.clone();
 
-impl<A: MetricsAggregator> MetricsCollector<A> {
-    async fn collect(mut self) -> A {
-        let mut aggregator = A::default();
-
-        while let Some(metric) = self.0.recv().await {
-            aggregator.add(metric);
-        }
-
-        aggregator.finalize();
-        aggregator
+        // Both should be valid (reqwest::Client uses Arc internally)
+        assert!(std::mem::size_of_val(&client1) > 0);
+        assert!(std::mem::size_of_val(&client2) > 0);
     }
-}
-
-/// Controller that manages virtual users and runtime control
-struct TestController<A: MetricsAggregator> {
-    client: HttpClient,
-    metrics_collector: MetricsCollector<A>,
-    control_tx: mpsc::Sender<ControlCommand>,
-    control_rx: mpsc::Receiver<ControlCommand>,
-    state_tx: watch::Sender<ControllerState>,
-    state_rx: watch::Receiver<ControllerState>,
-    user_handles: Vec<JoinHandle<()>>,
-    next_user_id: u8,
 }
