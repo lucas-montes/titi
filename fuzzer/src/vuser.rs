@@ -90,6 +90,12 @@
 
 use std::time::Instant;
 use tokio::sync::mpsc;
+use tokio::task::JoinSet;
+
+use crate::planner::RequestTemplate;
+use crate::{client::RequestError, ratelimiter::RateLimiter};
+use reqwest::{Client as ReqwestClient, StatusCode};
+
 
 /// Action that a VirtualUser can execute
 ///
@@ -102,10 +108,10 @@ use tokio::sync::mpsc;
 /// - Custom business logic
 pub trait Action: Send + Sync + Clone + 'static {
     /// The metrics type returned by this action
-    type Metrics: ActionMetrics;
+    type Metrics: ActionMetrics + Send + Sync + 'static;
 
     /// Execute the action and return metrics
-    async fn execute(&self, vuser_id: u16) -> Self::Metrics;
+    fn execute(&self, vuser_id: u16) -> impl std::future::Future<Output = Self::Metrics> + Send;
 }
 
 /// Metrics returned by an action execution
@@ -145,20 +151,13 @@ pub struct VirtualUser<A: Action> {
     parallel_actions: u8,
 }
 
-/// Per-VUser rate limiter
-/// Uses 0.0 for unlimited to avoid Option and branching
-pub struct RateLimiter {
-    requests_per_second: f64,
-    last_request: Option<Instant>,
-}
-
 impl<A: Action> VirtualUser<A> {
     pub fn new(
         id: u16,
         action: A,
         metrics_tx: mpsc::Sender<A::Metrics>,
-        requests_per_second: f64, // 0.0 = unlimited
-        parallel_actions: u8,     // 1 = sequential
+        requests_per_second: usize,
+        parallel_actions: u8, // 1 = sequential
     ) -> Self {
         Self {
             id,
@@ -174,35 +173,26 @@ impl<A: Action> VirtualUser<A> {
     /// VUser keeps executing the same action until:
     /// - Metrics channel is full or closed
     /// - Executor signals to stop
-    pub async fn run(&mut self) {
+    pub async fn run(&self) {
         loop {
-            // Apply rate limiting (0.0 = unlimited, no branch needed)
-            self.rate_limiter.wait().await;
+            let mut handles = JoinSet::new();
 
-            if self.parallel_actions == 1 {
-                // Sequential execution (most common case)
-                let metrics = self.action.execute(self.id).await;
-                if self.metrics_tx.try_send(metrics).is_err() {
-                    break;
-                }
-            } else {
-                // Parallel execution: spawn N actions concurrently
-                let mut handles = Vec::with_capacity(self.parallel_actions);
+            while handles.len() < self.parallel_actions as usize {
+                let action = self.action.clone();
+                let vuser_id = self.id;
+                let ratelimiter = self.rate_limiter.clone();
 
-                for _ in 0..self.parallel_actions {
-                    let action = self.action.clone();
-                    let vuser_id = self.id;
+                handles.spawn(async move {
+                    ratelimiter.acquire().await;
+                    action.execute(vuser_id).await
+                });
+            }
 
-                    handles.push(tokio::spawn(async move { action.execute(vuser_id).await }));
-                }
-
-                // Wait for all actions to complete
-                for handle in handles {
-                    if let Ok(metrics) = handle.await {
-                        if self.metrics_tx.try_send(metrics).is_err() {
-                            // Channel full or closed - stop executing
-                            return;
-                        }
+            while let Some(handle) = handles.join_next().await {
+                if let Ok(metrics) = handle {
+                    if self.metrics_tx.try_send(metrics).is_err() {
+                        // Channel full or closed - stop executing
+                        return;
                     }
                 }
             }
@@ -210,37 +200,7 @@ impl<A: Action> VirtualUser<A> {
     }
 }
 
-impl RateLimiter {
-    fn new(requests_per_second: f64) -> Self {
-        Self {
-            requests_per_second,
-            last_request: None,
-        }
-    }
 
-    async fn wait(&mut self) {
-        // 0.0 = unlimited, skip waiting entirely (branch predictor friendly)
-        if self.requests_per_second <= 0.0 {
-            return;
-        }
-
-        if let Some(last) = self.last_request {
-            let min_interval = std::time::Duration::from_secs_f64(1.0 / self.requests_per_second);
-            let elapsed = last.elapsed();
-
-            if elapsed < min_interval {
-                tokio::time::sleep(min_interval - elapsed).await;
-            }
-        }
-
-        self.last_request = Some(Instant::now());
-    }
-}
-
-
-use crate::client::RequestError;
-use crate::planner::RequestTemplate;
-use reqwest::{Client as ReqwestClient, StatusCode};
 
 #[derive(Clone)]
 pub struct HttpAction {
@@ -269,13 +229,11 @@ impl Action for HttpAction {
 
         match result {
             Ok(response) => {
-                let status = response.status();
-
                 HttpMetrics {
                     vuser_id,
                     timestamp: start,
                     duration: elapsed,
-                    status_code: Some(status),
+                    status_code: Some(response.status()),
                     error: None,
                 }
             }
@@ -314,7 +272,7 @@ impl ActionMetrics for HttpMetrics {
     }
 
     fn is_success(&self) -> bool {
-        self.error.is_none() && self.status_code.is_some_and(|c|c.is_success())
+        self.error.is_none() && self.status_code.is_some_and(|c| c.is_success())
     }
 }
 
@@ -330,18 +288,15 @@ impl HttpMetrics {
     }
 }
 
-/// Type alias for HTTP VirtualUser
-pub type HttpVirtualUser = VirtualUser<HttpAction>;
 
-/// Helper to create an HTTP VirtualUser
 pub fn create_http_vuser(
     id: u16,
     client: ReqwestClient,
     template: RequestTemplate,
     metrics_tx: mpsc::Sender<HttpMetrics>,
-    requests_per_second: f64,
+    requests_per_second: usize,
     parallel_requests: u8,
-) -> HttpVirtualUser {
+) -> VirtualUser<HttpAction> {
     let action = HttpAction::new(client, template);
     VirtualUser::new(
         id,
