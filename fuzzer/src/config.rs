@@ -15,7 +15,6 @@ pub struct Configuration {
 enum Scenario {
     LoadTesting(LoadTesting),
     Security(Security),
-
 }
 
 #[derive(Debug, Serialize, Deserialize)]

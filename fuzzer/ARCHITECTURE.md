@@ -1,6 +1,10 @@
-# Elerem Fuzzer - Mermaid Architecture Diagrams
+# Elerem Fuzzer - Architecture Documentation
 
-## Complete System Architecture
+> **Generic, Protocol-Agnostic API Testing Framework**
+>
+> Supports HTTP, gRPC, Database, and custom protocols through compile-time polymorphism.
+
+## Complete System Architecture (New Implementation)
 
 ```mermaid
 graph TB
@@ -13,23 +17,31 @@ graph TB
         Config["Parse & Validate<br/>• JSON/YAML parsing<br/>• Parameter extraction<br/>• Auth validation"]
     end
 
-    subgraph Layer2["🧠 LAYER 2: PLANNER"]
-        Planner["TestPlanner: Iterator&lt;Item = Case&gt;"]
-        IPOG["IPOG<br/>Combinatorial"]
-        IPOGC["IPOG-C<br/>+Constraints"]
-        Adaptive["T-wise Adaptive<br/>Dynamic Coverage"]
-        Boundary["Boundary<br/>Edge Cases"]
+    subgraph Layer2["🧠 LAYER 2: PLANNER (Two-Level)"]
+        Planner["TestPlanner&lt;Action&gt;<br/>Iterator&lt;Item = TestScenario&lt;Action&gt;&gt;"]
 
-        Planner -.-> IPOG
-        Planner -.-> IPOGC
-        Planner -.-> Adaptive
-        Planner -.-> Boundary
+        subgraph Algorithms["Planning Algorithms"]
+            IPOG["IPOG<br/>Combinatorial"]
+            IPOGC["IPOG-C<br/>+Constraints"]
+            Adaptive["T-wise Adaptive<br/>Dynamic Coverage"]
+            Boundary["Boundary<br/>Edge Cases"]
+        end
 
-        Case["Case {<br/>id, request_template,<br/>executor_type,<br/>assertions,<br/>stopping_conditions}"]
+        Planner -.-> Algorithms
+
+        Scenario["TestScenario&lt;A&gt; {<br/>scenario_id,<br/>parameter_space,<br/>constraints,<br/>action_factory,<br/>stopping_conditions}"]
+
+        CaseIter["CaseIterator&lt;A&gt;<br/>Lazy Generation"]
+
+        Case["TestCase&lt;A&gt; {<br/>case_id,<br/>action: A,<br/>parameters,<br/>assertions}"]
+
+        Planner -->|"yields"| Scenario
+        Scenario -->|".into_cases()"| CaseIter
+        CaseIter -->|"Iterator::next()"| Case
     end
 
     subgraph Layer3["🎯 LAYER 3: SCHEDULER"]
-        Scheduler["Scheduler<br/>Orchestration Loop"]
+        Scheduler["Scheduler&lt;P: TestPlanner&gt;<br/>Orchestration Loop"]
         MetricsHub["MetricsHub"]
         MetricsStream["MetricsStream<br/>WebSocket Server<br/>60s circular buffer"]
         MetricsRecorder["MetricsRecorder<br/>DB/File/Memory<br/>Buffered writes"]
@@ -39,48 +51,61 @@ graph TB
     end
 
     subgraph Layer4["⚡ LAYER 4: EXECUTOR"]
-        Exec1["Executor 1<br/>Case: login-test<br/>10 VUsers"]
-        Exec2["Executor 2<br/>Case: search-test<br/>50 VUsers"]
-        Exec3["Executor N<br/>Case: checkout-test<br/>5 VUsers"]
+        Exec1["Executor&lt;A: Action&gt; 1<br/>Scenario: auth-fuzzing<br/>10 VUsers"]
+        Exec2["Executor&lt;A: Action&gt; 2<br/>Scenario: search-load<br/>50 VUsers"]
+        Exec3["Executor&lt;A: Action&gt; N<br/>Scenario: checkout-stress<br/>5 VUsers"]
 
-        ExecLogic["Per Executor:<br/>• Spawn N VUsers<br/>• Aggregate metrics (1/sec)<br/>• Check assertions<br/>• Check stopping conditions<br/>• Calculate p50/p95/p99"]
+        ExecLogic["Per Executor:<br/>• Generate cases lazily<br/>• Spawn N VUsers per case<br/>• Aggregate metrics<br/>• Check stopping conditions<br/>• Send ExecutorSnapshot<br/>• Generate PlannerFeedback"]
+
+        MetricsCol["MetricsCollector&lt;M: ActionMetrics&gt;<br/>• Streaming stats (real-time)<br/>• Batch operations (lazy percentiles)"]
     end
 
     subgraph Layer5["👥 LAYER 5: VIRTUAL USERS"]
-        VU1["VUser 1<br/>Sequential"]
-        VU2["VUser 2<br/>Parallel 3x"]
-        VUN["VUser N<br/>Sequential"]
+        VU1["VirtualUser&lt;A: Action&gt; 1<br/>Sequential execution"]
+        VU2["VirtualUser&lt;A: Action&gt; 2<br/>Parallel execution"]
+        VUN["VirtualUser&lt;A: Action&gt; N<br/>Sequential execution"]
 
-        VULogic["Per VUser:<br/>• Rate limit (0.0 = unlimited)<br/>• Build request<br/>• Execute HTTP<br/>• Collect metrics<br/>• Send upstream"]
+        VULogic["Per VUser:<br/>• Rate limiting<br/>• Execute Action<br/>• Collect ActionMetrics<br/>• Send via mpsc"]
+
+        subgraph Actions["Generic Actions"]
+            HttpAction["HttpAction<br/>HTTP requests"]
+            GrpcAction["GrpcAction<br/>gRPC calls"]
+            DbAction["DatabaseAction<br/>SQL queries"]
+            CustomAction["CustomAction<br/>User-defined"]
+        end
     end
 
-    API["🌍 TARGET API<br/>(Under Test)"]
+    API["🌍 TARGET SYSTEM<br/>(Under Test)<br/>HTTP | gRPC | Database | Custom"]
 
     %% Flow connections
     UserInput --> Config
     Config --> Planner
-    Planner -->|"Iterator::next()"| Case
-    Case --> Scheduler
+    Planner -->|"pull scenario"| Scenario
+    Scenario --> Scheduler
     Scheduler -->|"spawn tokio task"| Exec1
     Scheduler -->|"spawn tokio task"| Exec2
     Scheduler -->|"spawn tokio task"| Exec3
 
     Exec1 -.->|"illustrates"| ExecLogic
+    Exec1 --> MetricsCol
 
     Exec1 -->|"spawn tokio tasks"| VU1
     Exec1 -->|"spawn tokio tasks"| VU2
     Exec1 -->|"spawn tokio tasks"| VUN
 
     VU1 -.->|"illustrates"| VULogic
+    VU1 -.->|"uses"| Actions
 
-    VU1 -->|"HTTP requests"| API
-    VU2 -->|"HTTP requests"| API
-    VUN -->|"HTTP requests"| API
+    VU1 -->|"execute action"| API
+    VU2 -->|"execute action"| API
+    VUN -->|"execute action"| API
 
     %% Metrics flow (bottom-up)
-    VU1 -->|"VUserMetrics<br/>mpsc channel"| Exec1
-    VU2 -->|"VUserMetrics<br/>mpsc channel"| Exec1
-    VUN -->|"VUserMetrics<br/>mpsc channel"| Exec1
+    VU1 -->|"ActionMetrics<br/>mpsc channel"| MetricsCol
+    VU2 -->|"ActionMetrics<br/>mpsc channel"| MetricsCol
+    VUN -->|"ActionMetrics<br/>mpsc channel"| MetricsCol
+
+    MetricsCol -->|"aggregated"| Exec1
 
     Exec1 -->|"ExecutorSnapshot<br/>mpsc channel"| Scheduler
     Exec2 -->|"ExecutorSnapshot<br/>mpsc channel"| Scheduler
@@ -90,7 +115,8 @@ graph TB
     MetricsStream -->|"GlobalSnapshot @ 2/sec"| WebSocket
 
     %% Feedback loop
-    Scheduler -.->|"PlannerFeedback<br/>(adaptive)"| Planner
+    Exec1 -.->|"PlannerFeedback"| Scheduler
+    Scheduler -.->|"update(feedback)"| Planner
 
     style User fill:#e1f5ff
     style Layer1 fill:#fff4e6
@@ -99,6 +125,8 @@ graph TB
     style Layer4 fill:#fff3e0
     style Layer5 fill:#fce4ec
     style API fill:#ffebee
+    style Actions fill:#fff9c4
+    style Algorithms fill:#f3e5f5
 ```
 
 ---

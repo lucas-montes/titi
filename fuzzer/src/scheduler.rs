@@ -1,133 +1,164 @@
-use crate::planner::TestPlanner;
-use std::sync::Arc;
-use tokio::sync::{mpsc, RwLock};
-use std::time::Instant;
+use crate::executor::{ExecutorSnapshot, ExecutionResult};
+use crate::planner::{TestPlanner, PlannerFeedback, TestScenario};
+use crate::vuser::Action;
+use std::collections::HashMap;
+use std::time::{Duration, Instant};
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
 
-/// Scheduler orchestrates test execution
-/// - Polls cases from Planner
-/// - Creates Executors for each case
-/// - Manages MetricsHub (streaming + recording)
-/// - Provides feedback to adaptive planners
+// ============================================================================
+// NEW ARCHITECTURE - Generic Scheduler<P: TestPlanner>
+// ============================================================================
+
+/// Scheduler orchestrates test execution across multiple scenarios.
+///
+/// Responsibilities:
+/// - Pull test scenarios from Planner
+/// - Spawn Executors (one per scenario)
+/// - Collect snapshots from all executors
+/// - Aggregate metrics across scenarios
+/// - Send feedback to Planner for adaptive test generation
+/// - Manage MetricsHub (streaming via WebSocket + persistent recording)
+/// - Check global stopping conditions
 pub struct Scheduler<P: TestPlanner> {
+    /// Test planner that generates scenarios
     planner: P,
-    metrics_hub: Arc<MetricsHub>,
+
+    /// Configuration
     config: SchedulerConfig,
+
+    /// Channel to receive snapshots from executors
+    snapshot_rx: mpsc::Receiver<ExecutorSnapshot>,
+
+    /// Channel to send snapshots to MetricsHub
+    hub_tx: mpsc::Sender<ExecutorSnapshot>,
+
+    /// Running executors (scenario_id -> join handle)
+    executors: HashMap<String, JoinHandle<ExecutionResult<<P::Action as Action>::Metrics>>>,
+
+    /// Global statistics
+    global_stats: GlobalStats,
+
+    /// Start time
+    start_time: Instant,
 }
 
+/// Scheduler configuration
 #[derive(Debug, Clone)]
 pub struct SchedulerConfig {
-    pub enable_streaming: bool,
-    pub enable_recording: bool,
-    pub storage: StorageConfig,
-    pub parallel_execution: bool,
+    /// Maximum number of concurrent executors (scenarios running in parallel)
+    pub max_concurrent_scenarios: usize,
+
+    /// Number of VUsers per executor
+    pub vusers_per_scenario: usize,
+
+    /// How often to check for stopping conditions
+    pub check_interval: Duration,
+
+    /// Global stopping conditions
+    pub global_stopping_conditions: GlobalStoppingConditions,
 }
 
-#[derive(Debug, Clone)]
-pub enum StorageConfig {
-    Database(String),
-    File(String),
-    Memory,
-    None,
+/// Global stopping conditions (across all scenarios)
+#[derive(Debug, Clone, Copy)]
+pub struct GlobalStoppingConditions {
+    /// Stop after total duration
+    pub max_duration: Option<Duration>,
+
+    /// Stop after total number of scenarios
+    pub max_scenarios: Option<usize>,
+
+    /// Stop after total number of actions
+    pub max_total_actions: Option<usize>,
 }
 
-/// Central metrics hub - coordinates streaming and recording
-pub struct MetricsHub {
-    snapshot_tx: mpsc::Sender<ExecutorSnapshot>,
-    snapshot_rx: Option<mpsc::Receiver<ExecutorSnapshot>>,
-    stream: MetricsStream,
-    recorder: MetricsRecorder,
-    global_metrics: Arc<RwLock<GlobalMetrics>>,
-}
-
-/// Real-time streaming to WebSocket clients
-pub struct MetricsStream {
-    ws_clients: Arc<RwLock<Vec<mpsc::Sender<GlobalSnapshot>>>>,
-    recent_history: Arc<RwLock<Vec<GlobalSnapshot>>>,
-    max_history_size: usize,
-}
-
-/// Persistent storage of metrics
-pub struct MetricsRecorder {
-    storage: StorageConfig,
-    buffer: Arc<RwLock<Vec<ExecutorSnapshot>>>,
-    buffer_size: usize,
-}
-
-/// Snapshot from a single executor
-#[derive(Debug, Clone)]
-pub struct ExecutorSnapshot {
-    pub case_id: String,
-    pub timestamp: Instant,
-    pub total_requests: usize,
-    pub successful: usize,
-    pub failed: usize,
-    pub current_rps: f64,
-    pub p50: std::time::Duration,
-    pub p95: std::time::Duration,
-    pub p99: std::time::Duration,
-    pub active_vusers: usize,
-}
-
-/// Global snapshot across all executors
-#[derive(Debug, Clone)]
-pub struct GlobalSnapshot {
-    pub timestamp: Instant,
-    pub executors: Vec<ExecutorSnapshot>,
-    pub total_requests: usize,
-    pub total_successful: usize,
-    pub total_failed: usize,
-    pub overall_rps: f64,
-}
-
-/// In-memory global metrics aggregation
+/// Global statistics across all scenarios
 #[derive(Debug, Default)]
-pub struct GlobalMetrics {
-    snapshots: Vec<ExecutorSnapshot>,
-    total_requests: usize,
-    total_successful: usize,
-    total_failed: usize,
+struct GlobalStats {
+    scenarios_completed: usize,
+    scenarios_failed: usize,
+    total_actions: usize,
+    total_errors: usize,
+}
+
+/// Result of running the scheduler
+pub type SchedulerResult = Result<SchedulerSummary, SchedulerError>;
+
+/// Summary of completed scheduler run
+#[derive(Debug)]
+pub struct SchedulerSummary {
+    pub duration: Duration,
+    pub scenarios_completed: usize,
+    pub scenarios_failed: usize,
+    pub total_actions: usize,
+    pub overall_success_rate: f64,
+}
+
+/// Errors that can occur in the scheduler
+#[derive(Debug)]
+pub enum SchedulerError {
+    ExecutorFailed(String),
+    GlobalTimeout,
+    StoppedByUser,
 }
 
 impl<P: TestPlanner> Scheduler<P> {
-    pub fn new(planner: P, config: SchedulerConfig) -> Self {
-        let (snapshot_tx, snapshot_rx) = mpsc::channel(10_000);
-
-        let metrics_hub = Arc::new(MetricsHub {
-            snapshot_tx,
-            snapshot_rx: Some(snapshot_rx),
-            stream: MetricsStream::new(),
-            recorder: MetricsRecorder::new(config.storage.clone()),
-            global_metrics: Arc::new(RwLock::new(GlobalMetrics::default())),
-        });
-
-        Self {
-            planner,
-            metrics_hub,
-            config,
-        }
+    /// Create a new scheduler
+    pub fn new(
+        _planner: P,
+        _config: SchedulerConfig,
+        _hub_tx: mpsc::Sender<ExecutorSnapshot>,
+    ) -> Self {
+        // Implementation details omitted
+        todo!("Scheduler::new")
     }
 
-    pub fn snapshot_sender(&self) -> mpsc::Sender<ExecutorSnapshot> {
-        self.metrics_hub.snapshot_tx.clone()
+    /// Run the scheduler until completion or stopped
+    pub async fn run(self) -> SchedulerResult {
+        // Implementation details omitted
+        todo!("Scheduler::run")
     }
-}
 
-impl MetricsStream {
-    fn new() -> Self {
-        Self {
-            ws_clients: Arc::new(RwLock::new(Vec::new())),
-            recent_history: Arc::new(RwLock::new(Vec::new())),
-            max_history_size: 120, // Last 60s at 2 snapshots/sec
-        }
+    /// Spawn an executor for a scenario
+    async fn spawn_executor(&mut self, _scenario: TestScenario<P::Action>) {
+        // Implementation details omitted
+        todo!("Scheduler::spawn_executor")
     }
-}
 
-impl MetricsRecorder {
-    fn new(storage: StorageConfig) -> Self {
-        Self {
-            storage,
-            buffer: Arc::new(RwLock::new(Vec::new())),
-            buffer_size: 100,
-        }
+    /// Process snapshots from executors
+    async fn process_snapshots(&mut self) {
+        // Implementation details omitted
+        todo!("Scheduler::process_snapshots")
+    }
+
+    /// Send feedback to planner based on executor results
+    fn send_feedback(&mut self, _feedback: PlannerFeedback) {
+        // Implementation details omitted
+        todo!("Scheduler::send_feedback")
+    }
+
+    /// Check if global stopping conditions are met
+    fn should_stop(&self) -> bool {
+        // Implementation details omitted
+        todo!("Scheduler::should_stop")
     }
 }
+
+// ============================================================================
+// OLD ARCHITECTURE - To be phased out
+// ============================================================================
+
+// trait HubMetricsAggregator {
+//     fn add_snapshot(&mut self, snapshot: OldExecutorSnapshot);
+//     fn aggregate(&self) -> GlobalSnapshot;
+// }
+//
+// type OldExecutorSnapshot = ();
+// type GlobalSnapshot = ();
+//
+// pub struct OldScheduler<P: TestPlanner, Metrics: HubMetricsAggregator> {
+//     planner: P,
+//     metrics: Metrics,
+//     executors_rx: mpsc::Receiver<OldExecutorSnapshot>,
+//     matrics_exporter: mpsc::Sender<OldExecutorSnapshot>,
+// }

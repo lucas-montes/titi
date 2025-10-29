@@ -1,233 +1,177 @@
-use crate::planner::{Case, Assertion, AssertionKind, StoppingCondition, ExecutorType};
-use crate::vuser::{VirtualUser, HttpClient, VUserMetrics};
-use tokio::sync::{mpsc, RwLock};
-use std::sync::Arc;
+use crate::metrics::MetricsCollector;
+use crate::planner::{TestScenario, TestCase, PlannerFeedback, ErrorCategory, CaseIterator};
+use crate::vuser::{Action, ActionMetrics};
+use std::collections::HashMap;
 use std::time::{Duration, Instant};
-use std::collections::VecDeque;
+use tokio::sync::mpsc;
+
+
+/// Executor manages a single test scenario with N virtual users.
+///
+/// Responsibilities:
+/// - Lazily generate test cases from the scenario's parameter space
+/// - Spawn VUsers to execute actions
+/// - Collect and aggregate metrics
+/// - Check stopping conditions (per-case and per-scenario)
+/// - Send periodic snapshots to Scheduler
+/// - Generate feedback for Planner
+///
+/// Scope: One Executor per TestScenario
+///
+/// NOTE: Uses monomorphization - no dynamic dispatch (`Box<dyn>`).
+/// The iterator type is concrete and known at compile time.
+pub struct Executor<A: Action> {
+    /// The scenario being executed (consumed when creating iterator)
+    scenario: Option<TestScenario<A>>,
+
+    /// Iterator for lazily generating test cases
+    /// Concrete type - no Box<dyn>, full type safety and zero-cost abstraction
+    case_iterator: Option<CaseIterator<A>>,
+
+    /// Number of virtual users to spawn per case
+    num_vusers: usize,
+
+    /// Metrics collector for this executor
+    metrics_collector: MetricsCollector<A::Metrics>,
+
+    /// Channel to send snapshots to scheduler
+    snapshot_tx: mpsc::Sender<ExecutorSnapshot>,
+
+    /// Channel to receive stop signal from scheduler
+    stop_rx: mpsc::Receiver<()>,
+
+    /// Execution start time
+    start_time: Instant,
+
+    /// Statistics for feedback generation
+    stats: ExecutionStats,
+}
+
+/// Execution statistics for a scenario (used for feedback)
+#[derive(Debug, Default)]
+struct ExecutionStats {
+    total_cases: usize,
+    successful_cases: usize,
+    failed_cases: usize,
+    consecutive_successes: usize,
+    consecutive_failures: usize,
+    error_counts: HashMap<ErrorCategory, usize>,
+}
+
+/// Protocol-agnostic snapshot of executor state (for metrics streaming)
+#[derive(Debug, Clone)]
+pub struct ExecutorSnapshot {
+    pub scenario_id: String,
+    pub timestamp: Instant,
+    pub elapsed: Duration,
+
+    /// Current case being executed (if any)
+    pub current_case_id: Option<String>,
+
+    /// Number of cases completed
+    pub cases_completed: usize,
+
+    /// Success rate across all cases in this scenario
+    pub success_rate: f64,
+
+    /// Total actions executed
+    pub total_actions: usize,
+
+    /// Error distribution
+    pub error_counts: HashMap<ErrorCategory, usize>,
+
+    /// Current throughput (actions/sec)
+    pub throughput: f64,
+
+    /// Whether this executor has finished
+    pub is_finished: bool,
+}
+
+/// Result of executing a scenario
+pub type ExecutionResult<M> = Result<ExecutionSummary<M>, ExecutionError>;
+
+/// Summary of a completed scenario execution
+#[derive(Debug)]
+pub struct ExecutionSummary<M: ActionMetrics> {
+    pub scenario_id: String,
+    pub duration: Duration,
+    pub cases_executed: usize,
+    pub total_actions: usize,
+    pub success_rate: f64,
+    pub metrics: Vec<M>,
+    pub feedback: PlannerFeedback,
+}
+
+/// Errors that can occur during execution
+#[derive(Debug)]
+pub enum ExecutionError {
+    ScenarioFailed(String),
+    StoppedByScheduler,
+    Timeout,
+}
+
+impl<A: Action> Executor<A> {
+    /// Create a new executor for a scenario
+    pub fn new(
+        _scenario: TestScenario<A>,
+        _num_vusers: usize,
+        _snapshot_tx: mpsc::Sender<ExecutorSnapshot>,
+        _stop_rx: mpsc::Receiver<()>,
+    ) -> Self {
+        // Implementation details omitted
+        todo!("Executor::new")
+    }
+
+    /// Run the executor until completion or stopped
+    pub async fn run(self) -> ExecutionResult<A::Metrics> {
+        // Implementation details omitted
+        todo!("Executor::run")
+    }
+
+    /// Generate feedback for the planner based on execution results
+    fn generate_feedback(&self) -> PlannerFeedback {
+        // Implementation details omitted
+        todo!("Executor::generate_feedback")
+    }
+
+    /// Check if scenario stopping conditions are met
+    fn should_stop(&self) -> bool {
+        // Implementation details omitted
+        todo!("Executor::should_stop")
+    }
+
+    /// Send a snapshot to the scheduler
+    async fn send_snapshot(&self) {
+        // Implementation details omitted
+        todo!("Executor::send_snapshot")
+    }
+}
+
+// ============================================================================
+// OLD ARCHITECTURE - To be phased out
+// ============================================================================
+
+use tokio::sync::{mpsc as old_mpsc};
 
 /// Executor manages a single test case with N virtual users
 /// - Spawns and manages VUser tasks
 /// - Enforces case assertions (p95, success rate, etc.)
 /// - Checks stopping conditions
 /// - Collects and sends metrics to Scheduler
-pub struct Executor {
-    case: Case,
-    http_client: Arc<HttpClient>,
-    metrics_collector: MetricsCollector,
+pub struct OldExecutor {
+    /// The case received with the tests cases to execute and the validations to apply
+    case: OldCase,
+    /// The metrics from the vusers
+    metrics_collector: OldMetricsCollector,
+    /// Handles for spawned VUser tasks
     vuser_handles: Vec<tokio::task::JoinHandle<()>>,
-    metrics_tx: mpsc::Sender<ExecutorSnapshot>,
+    /// Channel to send metrics to the scheduler
+    metrics_tx: old_mpsc::Sender<OldExecutorSnapshot>,
+    /// Channel to receive metrics from the vusers
+    metrics_rx: old_mpsc::Receiver<OldExecutorSnapshot>,
 }
 
-/// Collects metrics from VUsers and aggregates them
-pub struct MetricsCollector {
-    metrics_rx: mpsc::Receiver<VUserMetrics>,
-    metrics_tx: mpsc::Sender<VUserMetrics>,
-    aggregated: Arc<RwLock<AggregatedMetrics>>,
-    response_times: Arc<RwLock<VecDeque<Duration>>>,
-    max_response_times: usize,
-}
-
-/// Aggregated metrics across all VUsers
-#[derive(Debug, Default)]
-pub struct AggregatedMetrics {
-    pub total_requests: usize,
-    pub successful: usize,
-    pub failed: usize,
-    pub consecutive_errors: usize,
-    pub current_rps: f64,
-    pub last_rps_update: Instant,
-    pub status_codes: std::collections::HashMap<u16, usize>,
-}
-
-/// Snapshot sent to Scheduler
-#[derive(Debug, Clone)]
-pub struct ExecutorSnapshot {
-    pub case_id: String,
-    pub timestamp: Instant,
-    pub total_requests: usize,
-    pub successful: usize,
-    pub failed: usize,
-    pub current_rps: f64,
-    pub p50: Duration,
-    pub p95: Duration,
-    pub p99: Duration,
-    pub active_vusers: usize,
-}
-
-impl Executor {
-    pub fn new(
-        case: Case,
-        http_client: Arc<HttpClient>,
-        metrics_tx: mpsc::Sender<ExecutorSnapshot>,
-    ) -> Self {
-        let (vuser_metrics_tx, vuser_metrics_rx) = mpsc::channel(10_000);
-
-        let metrics_collector = MetricsCollector {
-            metrics_rx: vuser_metrics_rx,
-            metrics_tx: vuser_metrics_tx.clone(),
-            aggregated: Arc::new(RwLock::new(AggregatedMetrics {
-                last_rps_update: Instant::now(),
-                ..Default::default()
-            })),
-            response_times: Arc::new(RwLock::new(VecDeque::new())),
-            max_response_times: 10_000, // Keep last 10k requests for percentiles
-        };
-
-        Self {
-            case,
-            http_client,
-            metrics_collector,
-            vuser_handles: Vec::new(),
-            metrics_tx,
-        }
-    }
-
-    /// Start executing the test case
-    pub async fn run(&mut self) -> Result<(), String> {
-        // Spawn VUsers based on executor type
-        let num_vusers = self.get_initial_vuser_count();
-        for i in 0..num_vusers {
-            self.spawn_vuser(i).await;
-        }
-
-        // Start metrics collection task
-        self.start_metrics_collector().await;
-
-        // Start validation loop
-        self.validation_loop().await
-    }
-
-    fn get_initial_vuser_count(&self) -> usize {
-        match &self.case.executor_type {
-            ExecutorType::SingleShot => 1,
-            ExecutorType::ConstantVus { vus, .. } => *vus,
-            ExecutorType::RampingVus { stages } => {
-                stages.first().map(|s| s.target_vus).unwrap_or(1)
-            }
-            ExecutorType::ConstantArrivalRate { max_vus, .. } => *max_vus,
-        }
-    }
-
-    async fn spawn_vuser(&mut self, vuser_id: usize) {
-        let case = self.case.clone();
-        let http_client = Arc::clone(&self.http_client);
-        let metrics_tx = self.metrics_collector.metrics_tx.clone();
-
-        let handle = tokio::spawn(async move {
-            let mut vuser = VirtualUser::new(vuser_id, http_client, metrics_tx);
-            vuser.execute_case(case).await;
-        });
-
-        self.vuser_handles.push(handle);
-    }
-
-    async fn start_metrics_collector(&self) {
-        let aggregated = Arc::clone(&self.metrics_collector.aggregated);
-        let response_times = Arc::clone(&self.metrics_collector.response_times);
-        let max_response_times = self.metrics_collector.max_response_times;
-        let metrics_tx = self.metrics_tx.clone();
-        let case_id = self.case.id.clone();
-
-        // This would be a separate task that aggregates metrics
-        // For now, just a placeholder
-        tokio::spawn(async move {
-            // Aggregate VUser metrics and send snapshots to Scheduler
-        });
-    }
-
-    async fn validation_loop(&self) -> Result<(), String> {
-        loop {
-            tokio::time::sleep(Duration::from_secs(1)).await;
-
-            // Check assertions
-            let aggregated = self.metrics_collector.aggregated.read().await;
-            let response_times = self.metrics_collector.response_times.read().await;
-
-            for assertion in &self.case.assertions {
-                if !self.check_assertion(assertion, &aggregated, &response_times).await {
-                    return Err(format!("Assertion failed: {:?}", assertion));
-                }
-            }
-
-            // Check stopping conditions
-            for condition in &self.case.stopping_conditions {
-                if self.should_stop(condition, &aggregated, &response_times).await {
-                    return Ok(());
-                }
-            }
-        }
-    }
-
-    async fn check_assertion(
-        &self,
-        assertion: &Assertion,
-        aggregated: &AggregatedMetrics,
-        response_times: &VecDeque<Duration>,
-    ) -> bool {
-        match &assertion.kind {
-            AssertionKind::StatusCode(expected) => {
-                // Check most common status code
-                aggregated.status_codes.iter()
-                    .max_by_key(|(_, count)| *count)
-                    .map(|(code, _)| code == expected)
-                    .unwrap_or(false)
-            }
-            AssertionKind::P95ResponseTime(max) => {
-                calculate_percentile(response_times, 0.95) <= *max
-            }
-            AssertionKind::SuccessRate(min) => {
-                let total = aggregated.total_requests as f64;
-                if total == 0.0 { return true; }
-                (aggregated.successful as f64 / total) >= *min
-            }
-            AssertionKind::ErrorRate(max) => {
-                let total = aggregated.total_requests as f64;
-                if total == 0.0 { return true; }
-                (aggregated.failed as f64 / total) <= *max
-            }
-            AssertionKind::MinRps(min) => {
-                aggregated.current_rps >= *min
-            }
-            AssertionKind::MaxRps(max) => {
-                aggregated.current_rps <= *max
-            }
-        }
-    }
-
-    async fn should_stop(
-        &self,
-        condition: &StoppingCondition,
-        aggregated: &AggregatedMetrics,
-        response_times: &VecDeque<Duration>,
-    ) -> bool {
-        match condition {
-            StoppingCondition::FailureRate(threshold) => {
-                let total = aggregated.total_requests as f64;
-                if total == 0.0 { return false; }
-                (aggregated.failed as f64 / total) >= *threshold
-            }
-            StoppingCondition::ConsecutiveErrors(max) => {
-                aggregated.consecutive_errors >= *max
-            }
-            StoppingCondition::P95ResponseTime(max) => {
-                calculate_percentile(response_times, 0.95) > *max
-            }
-            StoppingCondition::TotalRequests(max) => {
-                aggregated.total_requests >= *max
-            }
-        }
-    }
-}
-
-/// Calculate percentile from response times
-fn calculate_percentile(times: &VecDeque<Duration>, percentile: f64) -> Duration {
-    if times.is_empty() {
-        return Duration::from_secs(0);
-    }
-
-    let mut sorted: Vec<Duration> = times.iter().copied().collect();
-    sorted.sort();
-
-    let index = ((sorted.len() as f64) * percentile) as usize;
-    sorted.get(index).copied().unwrap_or(Duration::from_secs(0))
-}
+// Placeholder types for old architecture
+type OldCase = ();
+type OldMetricsCollector = ();
+type OldExecutorSnapshot = ();
