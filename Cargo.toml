@@ -1,10 +1,10 @@
 [package]
-name = "tits"
+name = "elerem"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-stefn = { path = "../stefn" }
+stefn = { git = "file:///home/lucas/Projects/stefn", branch = "master"}
 #stefn = { git = "https://github.com/lucas-montes/stefn" }
 
 fuzzer = { path = "fuzzer" }

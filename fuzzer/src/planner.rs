@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 use crate::config::Configuration;
 use crate::vuser::Action;
 use std::collections::HashMap;
@@ -19,7 +21,7 @@ pub trait TestPlanner: Iterator<Item = TestScenario<Self::Action>> + From<Config
 }
 
 /// Feedback from executor to planner for adaptive test generation
-#[derive(Debug, Clone)]
+#[derive(Debug, Serialize)]
 pub struct PlannerFeedback {
     scenario_id: String,
     success_rate: f64,
@@ -28,7 +30,7 @@ pub struct PlannerFeedback {
 }
 
 /// Recommendation for planner adaptation
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Serialize, PartialEq, Eq)]
 pub enum FeedbackRecommendation {
     /// Low failure rate - try more complex test cases
     IncreaseComplexity,
@@ -41,7 +43,7 @@ pub enum FeedbackRecommendation {
 }
 
 /// Error categories (protocol-agnostic)
-#[derive(Debug, Clone, Copy, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize)]
 pub enum ErrorCategory {
     Timeout,
     Connection,
@@ -51,10 +53,6 @@ pub enum ErrorCategory {
     ClientError,
     Unknown,
 }
-
-// ============================================================================
-// NEW ARCHITECTURE - Two-level planning (TestScenario → TestCase)
-// ============================================================================
 
 /// A test scenario represents a high-level test strategy targeting one or more endpoints.
 /// Each scenario defines a parameter space and generates multiple concrete test cases lazily.

@@ -1,10 +1,10 @@
 use crate::metrics::MetricsCollector;
-use crate::planner::{TestScenario, TestCase, PlannerFeedback, ErrorCategory, CaseIterator};
+use crate::planner::{CaseIterator, ErrorCategory, PlannerFeedback, TestCase, TestScenario};
 use crate::vuser::{Action, ActionMetrics};
+use serde::Serialize;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
-
 
 /// Executor manages a single test scenario with N virtual users.
 ///
@@ -59,32 +59,32 @@ struct ExecutionStats {
 }
 
 /// Protocol-agnostic snapshot of executor state (for metrics streaming)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct ExecutorSnapshot {
-    pub scenario_id: String,
-    pub timestamp: Instant,
-    pub elapsed: Duration,
+    scenario_id: String,
+    timestamp: u64,
+    elapsed: Duration,
 
     /// Current case being executed (if any)
-    pub current_case_id: Option<String>,
+    current_case_id: Option<String>,
 
     /// Number of cases completed
-    pub cases_completed: usize,
+    cases_completed: usize,
 
     /// Success rate across all cases in this scenario
-    pub success_rate: f64,
+    success_rate: f64,
 
     /// Total actions executed
-    pub total_actions: usize,
+    total_actions: usize,
 
     /// Error distribution
-    pub error_counts: HashMap<ErrorCategory, usize>,
+    error_counts: HashMap<ErrorCategory, usize>,
 
     /// Current throughput (actions/sec)
-    pub throughput: f64,
+    throughput: f64,
 
     /// Whether this executor has finished
-    pub is_finished: bool,
+    is_finished: bool,
 }
 
 /// Result of executing a scenario
@@ -93,13 +93,13 @@ pub type ExecutionResult<M> = Result<ExecutionSummary<M>, ExecutionError>;
 /// Summary of a completed scenario execution
 #[derive(Debug)]
 pub struct ExecutionSummary<M: ActionMetrics> {
-    pub scenario_id: String,
-    pub duration: Duration,
-    pub cases_executed: usize,
-    pub total_actions: usize,
-    pub success_rate: f64,
-    pub metrics: Vec<M>,
-    pub feedback: PlannerFeedback,
+    scenario_id: String,
+    duration: Duration,
+    cases_executed: usize,
+    total_actions: usize,
+    success_rate: f64,
+    metrics: Vec<M>,
+    feedback: PlannerFeedback,
 }
 
 /// Errors that can occur during execution
@@ -146,32 +146,3 @@ impl<A: Action> Executor<A> {
         todo!("Executor::send_snapshot")
     }
 }
-
-// ============================================================================
-// OLD ARCHITECTURE - To be phased out
-// ============================================================================
-
-use tokio::sync::{mpsc as old_mpsc};
-
-/// Executor manages a single test case with N virtual users
-/// - Spawns and manages VUser tasks
-/// - Enforces case assertions (p95, success rate, etc.)
-/// - Checks stopping conditions
-/// - Collects and sends metrics to Scheduler
-pub struct OldExecutor {
-    /// The case received with the tests cases to execute and the validations to apply
-    case: OldCase,
-    /// The metrics from the vusers
-    metrics_collector: OldMetricsCollector,
-    /// Handles for spawned VUser tasks
-    vuser_handles: Vec<tokio::task::JoinHandle<()>>,
-    /// Channel to send metrics to the scheduler
-    metrics_tx: old_mpsc::Sender<OldExecutorSnapshot>,
-    /// Channel to receive metrics from the vusers
-    metrics_rx: old_mpsc::Receiver<OldExecutorSnapshot>,
-}
-
-// Placeholder types for old architecture
-type OldCase = ();
-type OldMetricsCollector = ();
-type OldExecutorSnapshot = ();

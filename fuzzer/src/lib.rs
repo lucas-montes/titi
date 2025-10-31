@@ -8,6 +8,13 @@ mod ratelimiter;
 mod executor;
 mod launcher;
 
+pub mod api;
+
+pub use config::Configuration;
+pub use executor::ExecutorSnapshot;
+pub use launcher::{Launcher, LauncherCommand};
+pub use api::{FuzzerService, routes};
+
 // We have 5 layers for the fuzzer
 // the first layer is the configuation that we receive from the user. This can be in asy shape, logs, json, yaml, manually entered, etc...
 // We still need to add more information to the configuration but he idea is to have a high level representation of what the user wants to do
