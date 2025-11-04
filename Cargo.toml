@@ -38,12 +38,15 @@ validator = { version = "0.19", features = ["derive"] }
 
 base64 = "0.22.1"
 async-stripe = { version = "0.39.1", features = ["runtime-tokio-hyper-rustls"] }
+reqwest = { workspace = true, features = ["json"] }
 
 [workspace]
 members = ["fuzzer"]
 
 
 [workspace.dependencies]
+reqwest = "0.12.24"
+
 # Benchmarking
 criterion = { version = "0.5.1", features = ["html_reports", "async_tokio"] }
 pprof = { version = "0.14.0", features = ["flamegraph", "criterion"] }

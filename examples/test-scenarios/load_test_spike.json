@@ -1,0 +1,50 @@
+{
+  "id": "spike-test-black-friday",
+  "name": "Black Friday Spike Test",
+  "description": "Simulate sudden traffic spike from 20 to 500 users for 30 seconds",
+  "target": {
+    "base_url": "https://shop.example.com",
+    "auth_token": null,
+    "timeout_seconds": 45,
+    "headers": [
+      ["Content-Type", "application/json"]
+    ]
+  },
+  "scenario": {
+    "type": "load_testing",
+    "pattern": {
+      "type": "spike",
+      "base_users": 20,
+      "spike_users": 500,
+      "spike_duration_seconds": 30
+    },
+    "duration_seconds": 180,
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/products/featured",
+        "body": null,
+        "weight": 35
+      },
+      {
+        "method": "GET",
+        "path": "/products/{{random_int_1_100}}",
+        "body": null,
+        "weight": 30
+      },
+      {
+        "method": "POST",
+        "path": "/cart/add",
+        "body": "{\"product_id\": {{random_int_1_100}}, \"quantity\": 1}",
+        "weight": 25
+      },
+      {
+        "method": "POST",
+        "path": "/checkout",
+        "body": "{\"cart_id\": \"{{random_uuid}}\", \"payment_method\": \"credit_card\"}",
+        "weight": 10
+      }
+    ],
+    "think_time_ms": 500
+  }
+}

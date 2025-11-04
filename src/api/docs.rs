@@ -5,7 +5,7 @@ use utoipa::{
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
 };
 
-use crate::api::{auth, jobs};
+use crate::api::{auth, test_routes};
 
 #[derive(OpenApi)]
 #[openapi(
@@ -20,8 +20,8 @@ use crate::api::{auth, jobs};
             )
         )),
     nest(
-        (path = "/jobs", api = jobs::ApiDoc, tags = ["Jobs"]),
         (path = "/auth", api = auth::ApiDoc, tags = ["Authorization"]),
+        (path = "/test", api = test_routes::ApiDoc, tags = ["Test Routes (Public & Protected)"]),
     ),
     components(schemas(ErrorMessage), responses(ErrorMessage)),
 )]

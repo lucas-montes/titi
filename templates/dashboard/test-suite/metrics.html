@@ -1,0 +1,362 @@
+{% extends "layout/dashboard/index.html" %}
+
+{% block title %}Test Metrics - Job #{{ job_id }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .metric-card {
+        border-left: 4px solid;
+        transition: all 0.3s ease;
+    }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .status-running { border-left-color: #4680ff; }
+    .status-success { border-left-color: #2ca87f; }
+    .status-error { border-left-color: #dc2626; }
+    .status-warning { border-left-color: #f59e0b; }
+
+    .live-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #2ca87f;
+        animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+</style>
+{% endblock extra_head %}
+
+{% block dashboard_body %}
+
+<!-- Header -->
+<div class="col-12 mb-4">
+    <div class="card">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col">
+                    <div class="d-flex align-items-center gap-2">
+                        <h4 class="mb-0">Test Metrics - Job #{{ job_id }}</h4>
+                        <span class="live-indicator" id="liveIndicator" title="Live updates"></span>
+                        <span class="badge bg-secondary" id="statusBadge">Loading...</span>
+                    </div>
+                    <p class="text-muted mb-0 mt-1">Real-time performance metrics and test results</p>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-outline-secondary" onclick="window.location.href='/dashboard/test-suite/upload'">
+                        <i class="bi bi-arrow-left"></i> Back to Upload
+                    </button>
+                    <button class="btn btn-danger" id="stopBtn" onclick="stopJob()">
+                        <i class="bi bi-stop-circle"></i> Stop Test
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Real-time Metrics Cards -->
+<div class="col-12 mb-4">
+    <div class="row g-3">
+        <div class="col-md-3 col-sm-6">
+            <div class="card metric-card status-running">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-1">Total Requests</p>
+                            <h3 class="mb-0" id="totalRequests">0</h3>
+                        </div>
+                        <div class="avatar avatar-lg bg-light-primary">
+                            <i class="bi bi-arrow-repeat text-primary" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card metric-card status-success">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-1">Success Rate</p>
+                            <h3 class="mb-0 text-success" id="successRate">0%</h3>
+                        </div>
+                        <div class="avatar avatar-lg bg-light-success">
+                            <i class="bi bi-check-circle text-success" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card metric-card status-warning">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-1">Avg Latency</p>
+                            <h3 class="mb-0 text-warning" id="avgLatency">0ms</h3>
+                        </div>
+                        <div class="avatar avatar-lg bg-light-warning">
+                            <i class="bi bi-speedometer text-warning" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-sm-6">
+            <div class="card metric-card status-error">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div>
+                            <p class="text-muted mb-1">Error Rate</p>
+                            <h3 class="mb-0 text-danger" id="errorRate">0%</h3>
+                        </div>
+                        <div class="avatar avatar-lg bg-light-danger">
+                            <i class="bi bi-exclamation-triangle text-danger" style="font-size: 1.5rem;"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detailed Metrics -->
+<div class="col-12 mb-4">
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Detailed Metrics</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-borderless">
+                    <tbody>
+                        <tr>
+                            <td class="text-muted">Total Requests:</td>
+                            <td><strong id="detailTotalRequests">0</strong></td>
+                            <td class="text-muted">Successful:</td>
+                            <td><strong id="detailSuccessful" class="text-success">0</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Failed Requests:</td>
+                            <td><strong id="detailFailed" class="text-danger">0</strong></td>
+                            <td class="text-muted">Pending:</td>
+                            <td><strong id="detailPending" class="text-warning">0</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Min Latency:</td>
+                            <td><strong id="detailMinLatency">0ms</strong></td>
+                            <td class="text-muted">Max Latency:</td>
+                            <td><strong id="detailMaxLatency">0ms</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">P50 Latency:</td>
+                            <td><strong id="detailP50">0ms</strong></td>
+                            <td class="text-muted">P95 Latency:</td>
+                            <td><strong id="detailP95">0ms</strong></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">P99 Latency:</td>
+                            <td><strong id="detailP99">0ms</strong></td>
+                            <td class="text-muted">Throughput:</td>
+                            <td><strong id="detailThroughput">0 req/s</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Event Log -->
+<div class="col-12">
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Event Log</h5>
+            <button class="btn btn-sm btn-outline-secondary" onclick="clearLog()">
+                <i class="bi bi-trash"></i> Clear
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="eventLog" style="max-height: 400px; overflow-y: auto; font-family: monospace; font-size: 0.9rem;">
+                <div class="text-muted">Waiting for events...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock dashboard_body %}
+
+{% block scripts %}
+{% call super() %}
+<script>
+    const jobId = { job_id };
+    let ws = null;
+    let reconnectTimeout = null;
+
+    // Connect to WebSocket for live metrics
+    function connectWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/dashboard/api/fuzzer/ws/${jobId}`;
+
+        logEvent('info', `Connecting to WebSocket: ${wsUrl}`);
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+            logEvent('success', 'Connected to live metrics stream');
+            document.getElementById('liveIndicator').style.backgroundColor = '#2ca87f';
+        };
+
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                updateMetrics(data);
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error);
+            }
+        };
+
+        ws.onerror = (error) => {
+            logEvent('error', 'WebSocket error occurred');
+            console.error('WebSocket error:', error);
+        };
+
+        ws.onclose = () => {
+            logEvent('warning', 'Disconnected from live metrics stream');
+            document.getElementById('liveIndicator').style.backgroundColor = '#dc2626';
+
+            // Attempt to reconnect after 3 seconds
+            reconnectTimeout = setTimeout(connectWebSocket, 3000);
+        };
+    }
+
+    // Update metrics display
+    function updateMetrics(data) {
+        if (data.error) {
+            logEvent('error', `Error: ${data.error}`);
+            return;
+        }
+
+        // Update metric cards
+        document.getElementById('totalRequests').textContent = data.total_requests || 0;
+        document.getElementById('detailTotalRequests').textContent = data.total_requests || 0;
+
+        const successRate = data.success_rate ? (data.success_rate * 100).toFixed(2) : '0.00';
+        document.getElementById('successRate').textContent = successRate + '%';
+
+        const avgLatency = data.avg_latency_ms ? data.avg_latency_ms.toFixed(2) : '0.00';
+        document.getElementById('avgLatency').textContent = avgLatency + 'ms';
+
+        const errorRate = data.error_rate ? (data.error_rate * 100).toFixed(2) : '0.00';
+        document.getElementById('errorRate').textContent = errorRate + '%';
+
+        // Update detailed metrics
+        document.getElementById('detailSuccessful').textContent = data.successful_requests || 0;
+        document.getElementById('detailFailed').textContent = data.failed_requests || 0;
+        document.getElementById('detailPending').textContent = data.pending_requests || 0;
+
+        if (data.latency_stats) {
+            document.getElementById('detailMinLatency').textContent = (data.latency_stats.min || 0).toFixed(2) + 'ms';
+            document.getElementById('detailMaxLatency').textContent = (data.latency_stats.max || 0).toFixed(2) + 'ms';
+            document.getElementById('detailP50').textContent = (data.latency_stats.p50 || 0).toFixed(2) + 'ms';
+            document.getElementById('detailP95').textContent = (data.latency_stats.p95 || 0).toFixed(2) + 'ms';
+            document.getElementById('detailP99').textContent = (data.latency_stats.p99 || 0).toFixed(2) + 'ms';
+        }
+
+        if (data.throughput) {
+            document.getElementById('detailThroughput').textContent = data.throughput.toFixed(2) + ' req/s';
+        }
+
+        // Update status badge
+        const statusBadge = document.getElementById('statusBadge');
+        if (data.is_complete) {
+            statusBadge.textContent = 'Completed';
+            statusBadge.className = 'badge bg-success';
+            document.getElementById('stopBtn').disabled = true;
+        } else {
+            statusBadge.textContent = 'Running';
+            statusBadge.className = 'badge bg-primary';
+        }
+    }
+
+    // Stop the job
+    async function stopJob() {
+        if (!confirm('Are you sure you want to stop this test?')) return;
+
+        try {
+            const response = await fetch('/dashboard/api/fuzzer/stop', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ job_id: jobId })
+            });
+
+            const result = await response.json();
+            if (response.ok && result.result === 'stopped') {
+                logEvent('success', 'Test stopped successfully');
+                document.getElementById('stopBtn').disabled = true;
+            } else {
+                logEvent('error', result.message || 'Failed to stop test');
+            }
+        } catch (error) {
+            logEvent('error', 'Error: ' + error.message);
+        }
+    }
+
+    // Log event to the event log
+    function logEvent(type, message) {
+        const log = document.getElementById('eventLog');
+
+        // Clear initial message
+        if (log.querySelector('.text-muted')) {
+            log.innerHTML = '';
+        }
+
+        const timestamp = new Date().toLocaleTimeString();
+        const colors = {
+            info: 'text-primary',
+            success: 'text-success',
+            warning: 'text-warning',
+            error: 'text-danger'
+        };
+
+        const entry = document.createElement('div');
+        entry.className = `mb-1 ${colors[type] || 'text-muted'}`;
+        entry.textContent = `[${timestamp}] ${message}`;
+
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+    }
+
+    // Clear event log
+    function clearLog() {
+        document.getElementById('eventLog').innerHTML = '<div class="text-muted">Event log cleared</div>';
+    }
+
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', () => {
+        connectWebSocket();
+
+        // Fetch initial metrics via HTTP
+        fetch(`/dashboard/api/fuzzer/metrics/${jobId}`)
+            .then(res => res.json())
+            .then(data => {
+                if (!data.error) {
+                    updateMetrics(data);
+                }
+            })
+            .catch(err => logEvent('error', 'Failed to fetch initial metrics'));
+    });
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', () => {
+        if (ws) ws.close();
+        if (reconnectTimeout) clearTimeout(reconnectTimeout);
+    });
+</script>
+{% endblock scripts %}

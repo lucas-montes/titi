@@ -2,8 +2,8 @@
 
 {% block title %}Upload Test Scenario{% endblock %}
 
-{% block content %}
-<div class="container-fluid">
+{% block dashboard_body %}
+<div class="col-12">
     <!-- Header -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
@@ -41,81 +41,334 @@
     </div>
 
     <div class="row">
-        <!-- Upload Form -->
-        <div class="col-lg-6">
+        <!-- Configuration Form -->
+        <div class="col-lg-8">
             <div class="card">
-                <div class="card-header">
-                    <h5 class="mb-0">Upload Configuration</h5>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Test Configuration</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button type="button" class="btn btn-outline-primary" onclick="switchMode('form')">Form</button>
+                        <button type="button" class="btn btn-outline-primary active" onclick="switchMode('json')">JSON</button>
+                    </div>
                 </div>
                 <div class="card-body">
-                    <form id="uploadForm" enctype="multipart/form-data">
-                        <div class="mb-3">
-                            <label for="scenarioFile" class="form-label">JSON Configuration File</label>
-                            <input type="file" class="form-control" id="scenarioFile" accept=".json" required>
-                            <div class="form-text">
-                                Upload a JSON file with test scenario configuration
+                    <!-- JSON Upload Mode -->
+                    <div id="jsonMode">
+                        <form id="uploadForm" enctype="multipart/form-data">
+                            <div class="mb-3">
+                                <label for="scenarioFile" class="form-label">JSON Configuration File</label>
+                                <input type="file" class="form-control" id="scenarioFile" accept=".json">
+                                <div class="form-text">
+                                    Upload a JSON file with test scenario configuration
+                                </div>
                             </div>
-                        </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">Preview</label>
-                            <pre id="jsonPreview" class="bg-light p-3 rounded" style="max-height: 300px; overflow-y: auto;">
-                                <code id="jsonContent" class="text-muted">No file selected</code>
-                            </pre>
-                        </div>
+                            <div class="mb-3">
+                                <label class="form-label">Preview / Edit</label>
+                                <textarea id="jsonContent" class="form-control font-monospace" rows="15" placeholder="Or paste JSON here..."></textarea>
+                            </div>
 
-                        <div class="d-flex gap-2">
-                            <button type="submit" class="btn btn-primary" id="uploadBtn">
-                                <i class="bi bi-cloud-upload me-2"></i>Upload & Start Test
-                            </button>
-                            <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
-                                <i class="bi bi-x-circle me-2"></i>Clear
-                            </button>
-                        </div>
-                    </form>
+                            <div class="d-flex gap-2">
+                                <button type="submit" class="btn btn-primary" id="uploadBtn">
+                                    <i class="bi bi-play-fill me-2"></i>Start Test
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                                    <i class="bi bi-x-circle me-2"></i>Clear
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Form Mode -->
+                    <div id="formMode" style="display: none;">
+                        <form id="configForm">
+                            <!-- Basic Info -->
+                            <h6 class="border-bottom pb-2 mb-3">Basic Information</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label for="scenarioName" class="form-label">Scenario Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="scenarioName" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="scenarioType" class="form-label">Test Type <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="scenarioType" onchange="toggleScenarioFields()" required>
+                                        <option value="">Select type...</option>
+                                        <option value="load_testing">Load Testing</option>
+                                        <option value="security">Security Testing</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="scenarioDescription" class="form-label">Description</label>
+                                <textarea class="form-control" id="scenarioDescription" rows="2"></textarea>
+                            </div>
+
+                            <!-- Target Configuration -->
+                            <h6 class="border-bottom pb-2 mb-3 mt-4">Target Configuration</h6>
+                            <div class="row mb-3">
+                                <div class="col-md-8">
+                                    <label for="targetUrl" class="form-label">Base URL <span class="text-danger">*</span></label>
+                                    <input type="url" class="form-control" id="targetUrl" placeholder="https://api.example.com" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="timeout" class="form-label">Timeout (seconds)</label>
+                                    <input type="number" class="form-control" id="timeout" value="30" min="1">
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label for="authToken" class="form-label">Authentication Token (Optional)</label>
+                                <input type="text" class="form-control" id="authToken" placeholder="Bearer token or API key">
+                            </div>
+
+                            <!-- Load Testing Fields -->
+                            <div id="loadTestingFields" style="display: none;">
+                                <h6 class="border-bottom pb-2 mb-3 mt-4">Load Testing Configuration</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="loadPattern" class="form-label">Load Pattern</label>
+                                        <select class="form-select" id="loadPattern" onchange="toggleLoadPattern()">
+                                            <option value="constant">Constant Load</option>
+                                            <option value="ramp_up">Ramp Up</option>
+                                            <option value="spike">Spike</option>
+                                            <option value="step">Step</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="duration" class="form-label">Duration (seconds)</label>
+                                        <input type="number" class="form-control" id="duration" value="60" min="1">
+                                    </div>
+                                </div>
+
+                                <!-- Constant Pattern -->
+                                <div id="constantPattern">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="virtualUsers" class="form-label">Virtual Users</label>
+                                            <input type="number" class="form-control" id="virtualUsers" value="10" min="1">
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="rps" class="form-label">Requests/Second (Optional)</label>
+                                            <input type="number" class="form-control" id="rps" placeholder="Auto">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Ramp Up Pattern -->
+                                <div id="rampUpPattern" style="display: none;">
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label for="startUsers" class="form-label">Start Users</label>
+                                            <input type="number" class="form-control" id="startUsers" value="1" min="1">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="endUsers" class="form-label">End Users</label>
+                                            <input type="number" class="form-control" id="endUsers" value="100" min="1">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="rampDuration" class="form-label">Ramp Duration (s)</label>
+                                            <input type="number" class="form-control" id="rampDuration" value="30" min="1">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Spike Pattern -->
+                                <div id="spikePattern" style="display: none;">
+                                    <div class="row mb-3">
+                                        <div class="col-md-4">
+                                            <label for="baseUsers" class="form-label">Base Users</label>
+                                            <input type="number" class="form-control" id="baseUsers" value="10" min="1">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="spikeUsers" class="form-label">Spike Users</label>
+                                            <input type="number" class="form-control" id="spikeUsers" value="100" min="1">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="spikeDuration" class="form-label">Spike Duration (s)</label>
+                                            <input type="number" class="form-control" id="spikeDuration" value="10" min="1">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step Pattern -->
+                                <div id="stepPattern" style="display: none;">
+                                    <div class="row mb-3">
+                                        <div class="col-md-3">
+                                            <label for="stepStartUsers" class="form-label">Start Users</label>
+                                            <input type="number" class="form-control" id="stepStartUsers" value="10" min="1">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="stepIncrement" class="form-label">Step Increment</label>
+                                            <input type="number" class="form-control" id="stepIncrement" value="10" min="1">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="stepDuration" class="form-label">Step Duration (s)</label>
+                                            <input type="number" class="form-control" id="stepDuration" value="30" min="1">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label for="maxUsers" class="form-label">Max Users</label>
+                                            <input type="number" class="form-control" id="maxUsers" value="100" min="1">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="thinkTime" class="form-label">Think Time (ms)</label>
+                                    <input type="number" class="form-control" id="thinkTime" value="1000" min="0">
+                                    <div class="form-text">Delay between requests per virtual user</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Endpoints to Test</label>
+                                    <div id="endpointsList">
+                                        <div class="input-group mb-2">
+                                            <select class="form-select" style="max-width: 120px;">
+                                                <option>GET</option>
+                                                <option>POST</option>
+                                                <option>PUT</option>
+                                                <option>DELETE</option>
+                                            </select>
+                                            <input type="text" class="form-control" placeholder="/api/users" value="/api/users">
+                                            <input type="number" class="form-control" placeholder="Weight" value="1" min="1" style="max-width: 100px;">
+                                            <button class="btn btn-outline-danger" type="button" onclick="removeEndpoint(this)">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="addEndpoint()">
+                                        <i class="bi bi-plus-circle me-1"></i>Add Endpoint
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Security Testing Fields -->
+                            <div id="securityFields" style="display: none;">
+                                <h6 class="border-bottom pb-2 mb-3 mt-4">Security Testing Configuration</h6>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label for="concurrentRequests" class="form-label">Concurrent Requests</label>
+                                        <input type="number" class="form-control" id="concurrentRequests" value="5" min="1">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="maxRequests" class="form-label">Max Requests (Optional)</label>
+                                        <input type="number" class="form-control" id="maxRequests" placeholder="Unlimited">
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Attack Types</label>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="sqlInjection" checked>
+                                        <label class="form-check-label" for="sqlInjection">SQL Injection</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="xssInjection" checked>
+                                        <label class="form-check-label" for="xssInjection">XSS Injection</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="commandInjection">
+                                        <label class="form-check-label" for="commandInjection">Command Injection</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="pathTraversal">
+                                        <label class="form-check-label" for="pathTraversal">Path Traversal</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="authBypass">
+                                        <label class="form-check-label" for="authBypass">Auth Bypass</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="brokenAccess">
+                                        <label class="form-check-label" for="brokenAccess">Broken Access Control</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" id="csrf">
+                                        <label class="form-check-label" for="csrf">CSRF</label>
+                                    </div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label class="form-label">Endpoints to Test (Optional)</label>
+                                    <textarea class="form-control" id="securityEndpoints" rows="3" placeholder="/api/users&#10;/api/products&#10;/api/orders"></textarea>
+                                    <div class="form-text">One endpoint per line. Leave empty to auto-discover.</div>
+                                </div>
+                            </div>
+
+                            <div class="d-flex gap-2 mt-4">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-play-fill me-2"></i>Start Test
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="previewJSON()">
+                                    <i class="bi bi-eye me-2"></i>Preview JSON
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" onclick="clearForm()">
+                                    <i class="bi bi-x-circle me-2"></i>Clear
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Example Scenarios -->
-        <div class="col-lg-6">
-            <div class="card">
+        <!-- Quick Start & Examples -->
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Quick Start</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small">Choose how to configure your test:</p>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary" onclick="switchMode('form')">
+                            <i class="bi bi-ui-checks me-2"></i>Use Form Builder
+                        </button>
+                        <button class="btn btn-outline-primary" onclick="switchMode('json')">
+                            <i class="bi bi-code-square me-2"></i>Write JSON
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="loadQuickLoadTest()">
+                            <i class="bi bi-lightning-fill me-2"></i>Quick Load Test
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="loadQuickSecurityTest()">
+                            <i class="bi bi-shield-fill-check me-2"></i>Quick Security Test
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
                 <div class="card-header">
                     <h5 class="mb-0">Example Scenarios</h5>
                 </div>
                 <div class="card-body">
-                    <p class="text-muted mb-3">Click on an example to load it into the upload form</p>
-
                     <div class="list-group">
                         <a href="#" class="list-group-item list-group-item-action" onclick="loadExample('basic-security'); return false;">
                             <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">Basic Security Test</h6>
-                                <small class="text-muted">Security</small>
+                                <h6 class="mb-1"><i class="bi bi-shield-check text-danger"></i> Security Test</h6>
                             </div>
-                            <p class="mb-1 small">Tests for common security vulnerabilities like SQL injection and XSS</p>
-                            <small class="text-muted">Attacks: SQL injection, XSS, Path traversal, Command injection</small>
+                            <p class="mb-0 small text-muted">SQL injection, XSS, path traversal</p>
                         </a>
-
                         <a href="#" class="list-group-item list-group-item-action" onclick="loadExample('load-test'); return false;">
                             <div class="d-flex w-100 justify-content-between">
-                                <h6 class="mb-1">Peak Traffic Load Test</h6>
-                                <small class="text-muted">Performance</small>
+                                <h6 class="mb-1"><i class="bi bi-speedometer text-primary"></i> Load Test</h6>
                             </div>
-                            <p class="mb-1 small">Simulates peak traffic with gradual ramp-up pattern</p>
-                            <small class="text-muted">Pattern: Ramp-up from 10 to 500 virtual users</small>
+                            <p class="mb-0 small text-muted">Ramp from 10 to 500 users</p>
                         </a>
                     </div>
+                </div>
+            </div>
 
-                    <div class="mt-4">
-                        <h6>Quick Actions</h6>
-                        <div class="d-grid gap-2">
-                            <button class="btn btn-outline-primary btn-sm" onclick="downloadTemplate()">
-                                <i class="bi bi-download me-2"></i>Download Empty Template
-                            </button>
-                            <a href="/dashboard/test-suite" class="btn btn-outline-secondary btn-sm">
-                                <i class="bi bi-book me-2"></i>View Documentation
-                            </a>
-                        </div>
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Help</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="downloadTemplate()">
+                            <i class="bi bi-download me-2"></i>Download Template
+                        </button>
+                        <a href="/dashboard/test-suite" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-book me-2"></i>Documentation
+                        </a>
                     </div>
                 </div>
             </div>
@@ -134,9 +387,10 @@
         </div>
     </div>
 </div>
-{% endblock %}
+{% endblock dashboard_body %}
 
 {% block scripts %}
+{% call super() %}
 <script>
     let ws = null;
     let isConnected = false;
@@ -221,6 +475,172 @@
         log.scrollTop = log.scrollHeight;
     }
 
+    // Switch between form and JSON mode
+    function switchMode(mode) {
+        const formMode = document.getElementById('formMode');
+        const jsonMode = document.getElementById('jsonMode');
+        const buttons = document.querySelectorAll('.btn-group .btn');
+
+        if (mode === 'form') {
+            formMode.style.display = 'block';
+            jsonMode.style.display = 'none';
+            buttons[0].classList.add('active');
+            buttons[1].classList.remove('active');
+        } else {
+            formMode.style.display = 'none';
+            jsonMode.style.display = 'block';
+            buttons[0].classList.remove('active');
+            buttons[1].classList.add('active');
+        }
+    }
+
+    // Toggle scenario type fields
+    function toggleScenarioFields() {
+        const type = document.getElementById('scenarioType').value;
+        document.getElementById('loadTestingFields').style.display = type === 'load_testing' ? 'block' : 'none';
+        document.getElementById('securityFields').style.display = type === 'security' ? 'block' : 'none';
+    }
+
+    // Toggle load pattern fields
+    function toggleLoadPattern() {
+        const pattern = document.getElementById('loadPattern').value;
+        document.getElementById('constantPattern').style.display = pattern === 'constant' ? 'block' : 'none';
+        document.getElementById('rampUpPattern').style.display = pattern === 'ramp_up' ? 'block' : 'none';
+        document.getElementById('spikePattern').style.display = pattern === 'spike' ? 'block' : 'none';
+        document.getElementById('stepPattern').style.display = pattern === 'step' ? 'block' : 'none';
+    }
+
+    // Add endpoint to list
+    function addEndpoint() {
+        const list = document.getElementById('endpointsList');
+        const div = document.createElement('div');
+        div.className = 'input-group mb-2';
+        div.innerHTML = `
+            <select class="form-select" style="max-width: 120px;">
+                <option>GET</option>
+                <option>POST</option>
+                <option>PUT</option>
+                <option>DELETE</option>
+            </select>
+            <input type="text" class="form-control" placeholder="/api/endpoint">
+            <input type="number" class="form-control" placeholder="Weight" value="1" min="1" style="max-width: 100px;">
+            <button class="btn btn-outline-danger" type="button" onclick="removeEndpoint(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        `;
+        list.appendChild(div);
+    }
+
+    // Remove endpoint from list
+    function removeEndpoint(btn) {
+        btn.closest('.input-group').remove();
+    }
+
+    // Build configuration object from form
+    function buildConfigFromForm() {
+        const type = document.getElementById('scenarioType').value;
+        const config = {
+            id: `test-${Date.now()}`,
+            name: document.getElementById('scenarioName').value,
+            description: document.getElementById('scenarioDescription').value || null,
+            target: {
+                base_url: document.getElementById('targetUrl').value,
+                auth_token: document.getElementById('authToken').value || null,
+                timeout_seconds: parseInt(document.getElementById('timeout').value),
+                headers: null
+            },
+            scenario: null
+        };
+
+        if (type === 'load_testing') {
+            const pattern = document.getElementById('loadPattern').value;
+            let patternConfig = { type: pattern };
+
+            if (pattern === 'constant') {
+                patternConfig.virtual_users = parseInt(document.getElementById('virtualUsers').value);
+                const rps = document.getElementById('rps').value;
+                patternConfig.requests_per_second = rps ? parseInt(rps) : null;
+            } else if (pattern === 'ramp_up') {
+                patternConfig.start_users = parseInt(document.getElementById('startUsers').value);
+                patternConfig.end_users = parseInt(document.getElementById('endUsers').value);
+                patternConfig.ramp_duration_seconds = parseInt(document.getElementById('rampDuration').value);
+            } else if (pattern === 'spike') {
+                patternConfig.base_users = parseInt(document.getElementById('baseUsers').value);
+                patternConfig.spike_users = parseInt(document.getElementById('spikeUsers').value);
+                patternConfig.spike_duration_seconds = parseInt(document.getElementById('spikeDuration').value);
+            } else if (pattern === 'step') {
+                patternConfig.start_users = parseInt(document.getElementById('stepStartUsers').value);
+                patternConfig.step_increment = parseInt(document.getElementById('stepIncrement').value);
+                patternConfig.step_duration_seconds = parseInt(document.getElementById('stepDuration').value);
+                patternConfig.max_users = parseInt(document.getElementById('maxUsers').value);
+            }
+
+            // Get endpoints
+            const endpoints = [];
+            document.querySelectorAll('#endpointsList .input-group').forEach(group => {
+                const inputs = group.querySelectorAll('input, select');
+                endpoints.push({
+                    method: inputs[0].value,
+                    path: inputs[1].value,
+                    body: null,
+                    weight: parseInt(inputs[2].value)
+                });
+            });
+
+            config.scenario = {
+                type: 'load_testing',
+                pattern: patternConfig,
+                duration_seconds: parseInt(document.getElementById('duration').value),
+                endpoints: endpoints,
+                think_time_ms: parseInt(document.getElementById('thinkTime').value)
+            };
+        } else if (type === 'security') {
+            const attackTypes = [];
+            const attackMap = {
+                'sqlInjection': 'sql_injection',
+                'xssInjection': 'xss_injection',
+                'commandInjection': 'command_injection',
+                'pathTraversal': 'path_traversal',
+                'authBypass': 'auth_bypass',
+                'brokenAccess': 'broken_access',
+                'csrf': 'csrf'
+            };
+
+            for (const [id, value] of Object.entries(attackMap)) {
+                if (document.getElementById(id).checked) {
+                    attackTypes.push(value);
+                }
+            }
+
+            const endpointsText = document.getElementById('securityEndpoints').value;
+            const endpoints = endpointsText ? endpointsText.split('\n').filter(e => e.trim()) : [];
+
+            const maxRequests = document.getElementById('maxRequests').value;
+
+            config.scenario = {
+                type: 'security',
+                attack_types: attackTypes,
+                concurrent_requests: parseInt(document.getElementById('concurrentRequests').value),
+                max_requests: maxRequests ? parseInt(maxRequests) : null,
+                endpoints: endpoints
+            };
+        }
+
+        return config;
+    }
+
+    // Preview JSON from form
+    function previewJSON() {
+        try {
+            const config = buildConfigFromForm();
+            document.getElementById('jsonContent').value = JSON.stringify(config, null, 2);
+            switchMode('json');
+            showAlert('info', 'Configuration converted to JSON. You can edit it before submitting.');
+        } catch (error) {
+            showAlert('danger', 'Error building configuration: ' + error.message);
+        }
+    }
+
     // File input change handler
     document.getElementById('scenarioFile').addEventListener('change', async (e) => {
         const file = e.target.files[0];
@@ -229,68 +649,84 @@
         try {
             const text = await file.text();
             const json = JSON.parse(text);
-
-            document.getElementById('jsonContent').textContent = JSON.stringify(json, null, 2);
+            document.getElementById('jsonContent').value = JSON.stringify(json, null, 2);
         } catch (error) {
             showAlert('danger', 'Invalid JSON file: ' + error.message);
-            document.getElementById('jsonContent').textContent = 'Invalid JSON';
+            document.getElementById('jsonContent').value = '';
         }
     });
 
-    // Form submit handler
+    // JSON upload form handler
     document.getElementById('uploadForm').addEventListener('submit', async (e) => {
         e.preventDefault();
 
-        const fileInput = document.getElementById('scenarioFile');
-        const file = fileInput.files[0];
+        let config;
+        const jsonContent = document.getElementById('jsonContent').value;
 
-        if (!file) {
-            showAlert('warning', 'Please select a file');
+        if (jsonContent.trim()) {
+            // Use JSON from textarea
+            try {
+                config = JSON.parse(jsonContent);
+            } catch (error) {
+                showAlert('danger', 'Invalid JSON: ' + error.message);
+                return;
+            }
+        } else {
+            showAlert('warning', 'Please provide a JSON configuration');
             return;
         }
 
+        await submitConfiguration(config);
+    });
+
+    // Form submit handler
+    document.getElementById('configForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
         try {
-            const text = await file.text();
-            const scenario = JSON.parse(text);
+            const config = buildConfigFromForm();
+            await submitConfiguration(config);
+        } catch (error) {
+            showAlert('danger', 'Error: ' + error.message);
+        }
+    });
 
-            // Upload scenario
-            const uploadBtn = document.getElementById('uploadBtn');
+    // Submit configuration to backend
+    async function submitConfiguration(config) {
+        const uploadBtn = document.querySelector('#uploadBtn, #configForm button[type="submit"]');
+        const originalText = uploadBtn.innerHTML;
+
+        try {
             uploadBtn.disabled = true;
-            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Uploading...';
+            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Starting...';
 
-            const response = await fetch('/api/v1/fuzzer/scenarios', {
+            const response = await fetch('/dashboard/api/fuzzer/start', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ scenario })
+                body: JSON.stringify(config)
             });
 
             const result = await response.json();
 
-            if (response.ok && result.success) {
-                showAlert('success', `Scenario uploaded successfully! Starting test...`);
-
-                // Start the test immediately
-                // Note: In a real implementation, we'd use the control plane to start the test
-                // For now, we're simulating it
-                logEvent('info', `Starting test for scenario: ${scenario.name}`);
+            if (response.ok && result.result === 'created') {
+                showAlert('success', `Test started successfully! Job ID: ${result.job_id}`);
+                logEvent('success', `Started test: ${config.name} (Job ${result.job_id})`);
 
                 setTimeout(() => {
-                    clearForm();
-                    refreshRuns();
-                }, 1000);
+                    window.location.href = `/dashboard/test-suite/metrics/${result.job_id}`;
+                }, 1500);
             } else {
-                showAlert('danger', result.error || 'Failed to upload scenario');
+                showAlert('danger', result.message || 'Failed to start test');
             }
         } catch (error) {
             showAlert('danger', 'Error: ' + error.message);
         } finally {
-            const uploadBtn = document.getElementById('uploadBtn');
             uploadBtn.disabled = false;
-            uploadBtn.innerHTML = '<i class="bi bi-cloud-upload me-2"></i>Upload & Start Test';
+            uploadBtn.innerHTML = originalText;
         }
-    });
+    }
 
     // Load example scenario
     async function loadExample(exampleName) {
@@ -298,13 +734,8 @@
             const response = await fetch(`/examples/test-scenarios/${exampleName}.json`);
             const json = await response.json();
 
-            // Create a File object
-            const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
-            const file = new File([blob], `${exampleName}.json`, { type: 'application/json' });
-
-            // Update file input (note: this is tricky, we'll just update the preview)
-            document.getElementById('jsonContent').textContent = JSON.stringify(json, null, 2);
-
+            document.getElementById('jsonContent').value = JSON.stringify(json, null, 2);
+            switchMode('json');
             showAlert('info', `Loaded example: ${exampleName}`);
         } catch (error) {
             showAlert('danger', 'Failed to load example: ' + error.message);
@@ -314,7 +745,28 @@
     // Clear form
     function clearForm() {
         document.getElementById('uploadForm').reset();
-        document.getElementById('jsonContent').textContent = 'No file selected';
+        document.getElementById('configForm').reset();
+        document.getElementById('jsonContent').value = '';
+
+        // Reset endpoint list to default
+        const list = document.getElementById('endpointsList');
+        list.innerHTML = `
+            <div class="input-group mb-2">
+                <select class="form-select" style="max-width: 120px;">
+                    <option>GET</option>
+                    <option>POST</option>
+                    <option>PUT</option>
+                    <option>DELETE</option>
+                </select>
+                <input type="text" class="form-control" placeholder="/api/users" value="/api/users">
+                <input type="number" class="form-control" placeholder="Weight" value="1" min="1" style="max-width: 100px;">
+                <button class="btn btn-outline-danger" type="button" onclick="removeEndpoint(this)">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        `;
+
+        toggleScenarioFields();
     }
 
     // Show alert
@@ -331,62 +783,80 @@
         setTimeout(() => alert.remove(), 5000);
     }
 
+    // Get status color for badges
+    function getStatusColor(status) {
+        const colors = {
+            'running': 'primary',
+            'completed': 'success',
+            'failed': 'danger',
+            'stopped': 'warning',
+            'queued': 'secondary'
+        };
+        return colors[status] || 'secondary';
+    }
+
     // Refresh active runs
     async function refreshRuns() {
         try {
-            const response = await fetch('/api/v1/fuzzer/runs');
-            const runs = await response.json();
+            const response = await fetch('/dashboard/api/fuzzer/jobs');
+            const data = await response.json();
 
             const container = document.getElementById('activeRuns');
 
-            if (runs.length === 0) {
-                container.innerHTML = '<p class="text-muted text-center py-4">No active test runs</p>';
-                return;
-            }
-
-            let html = '<table class="table table-hover"><thead><tr>';
-            html += '<th>Run ID</th><th>Scenario</th><th>Status</th><th>Progress</th><th>Started</th><th>Actions</th>';
-            html += '</tr></thead><tbody>';
-
-            runs.forEach(run => {
-                const statusColors = {
-                    Queued: 'secondary',
-                    Running: 'primary',
-                    Paused: 'warning',
-                    Completed: 'success',
-                    Failed: 'danger',
-                    Stopped: 'secondary'
-                };
-
-                html += '<tr>';
-                html += `<td><code>${run.run_id}</code></td>`;
-                html += `<td>${run.scenario_name}</td>`;
-                html += `<td><span class="badge bg-${statusColors[run.status]}">${run.status}</span></td>`;
-                html += `<td>
-                    <div class="progress" style="height: 20px;">
-                        <div class="progress-bar" role="progressbar" style="width: ${run.progress_percent}%"
-                             id="progress-${run.run_id}">
-                            ${run.progress_percent.toFixed(0)}%
-                        </div>
+            if (data.jobs && data.jobs.length > 0) {
+                const html = `
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Job ID</th>
+                                <th>Status</th>
+                                <th>Requests</th>
+                                <th>Success Rate</th>
+                                <th>Avg Latency</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.jobs.map(job => `
+                                <tr>
+                                    <td><code>${job.job_id}</code></td>
+                                    <td><span class="badge bg-${getStatusColor(job.status)}">${job.status}</span></td>
+                                    <td>${job.total_requests || 0}</td>
+                                    <td>${job.success_rate ? (job.success_rate * 100).toFixed(2) + '%' : 'N/A'}</td>
+                                    <td>${job.avg_latency_ms ? job.avg_latency_ms.toFixed(2) + 'ms' : 'N/A'}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary" onclick="viewMetrics('${job.job_id}')">
+                                            <i class="bi bi-graph-up"></i>
+                                        </button>
+                                        ${job.status === 'running' ? `
+                                            <button class="btn btn-sm btn-danger" onclick="stopJob('${job.job_id}')">
+                                                <i class="bi bi-stop-circle"></i>
+                                            </button>
+                                        ` : ''}
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = `
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                        <p class="mt-2">No active test runs</p>
                     </div>
-                </td>`;
-                html += `<td><small>${new Date(run.started_at).toLocaleString()}</small></td>`;
-                html += `<td>
-                    <button class="btn btn-sm btn-danger" onclick="stopRun('${run.run_id}')">
-                        <i class="bi bi-stop-fill"></i>
-                    </button>
-                </td>`;
-                html += '</tr>';
-            });
-
-            html += '</tbody></table>';
-            container.innerHTML = html;
+                `;
+            }
         } catch (error) {
-            console.error('Failed to refresh runs:', error);
+            console.error('Error fetching runs:', error);
+            document.getElementById('activeRuns').innerHTML = `
+                <div class="text-center py-3 text-danger">
+                    <p>Error loading jobs. Make sure the fuzzer service is running.</p>
+                </div>
+            `;
         }
-    }
-
-    // Update run progress
+    }    // Update run progress
     function updateRunProgress(runId, progress, metrics) {
         const progressBar = document.getElementById(`progress-${runId}`);
         if (progressBar) {
@@ -395,59 +865,137 @@
         }
     }
 
-    // Stop a test run
-    async function stopRun(runId) {
+    // View metrics for a job
+    function viewMetrics(jobId) {
+        window.location.href = `/dashboard/test-suite/metrics/${jobId}`;
+    }
+
+    // Stop a running job
+    async function stopJob(jobId) {
         if (!confirm('Are you sure you want to stop this test?')) return;
 
         try {
-            const response = await fetch(`/api/v1/fuzzer/runs/${runId}/stop`, {
-                method: 'POST'
+            const response = await fetch('/dashboard/api/fuzzer/stop', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ job_id: parseInt(jobId) })
             });
 
             const result = await response.json();
 
-            if (result.success) {
+            if (response.ok && result.result === 'stopped') {
                 showAlert('success', 'Test stopped successfully');
                 refreshRuns();
             } else {
-                showAlert('danger', result.error || 'Failed to stop test');
+                showAlert('danger', result.message || 'Failed to stop test');
             }
         } catch (error) {
             showAlert('danger', 'Error: ' + error.message);
         }
     }
 
+    // Quick load test
+    function loadQuickLoadTest() {
+        const template = {
+            id: `load-test-${Date.now()}`,
+            name: "Quick Load Test",
+            description: "Simple constant load test",
+            target: {
+                base_url: "https://api.example.com",
+                auth_token: null,
+                timeout_seconds: 30,
+                headers: null
+            },
+            scenario: {
+                type: "load_testing",
+                pattern: {
+                    type: "constant",
+                    virtual_users: 10,
+                    requests_per_second: null
+                },
+                duration_seconds: 60,
+                endpoints: [
+                    {
+                        method: "GET",
+                        path: "/api/health",
+                        body: null,
+                        weight: 1
+                    }
+                ],
+                think_time_ms: 1000
+            }
+        };
+
+        document.getElementById('jsonContent').value = JSON.stringify(template, null, 2);
+        switchMode('json');
+        showAlert('info', 'Quick load test template loaded. Customize and start!');
+    }
+
+    // Quick security test
+    function loadQuickSecurityTest() {
+        const template = {
+            id: `security-test-${Date.now()}`,
+            name: "Quick Security Test",
+            description: "Basic security vulnerability scan",
+            target: {
+                base_url: "https://api.example.com",
+                auth_token: null,
+                timeout_seconds: 30,
+                headers: null
+            },
+            scenario: {
+                type: "security",
+                attack_types: ["sql_injection", "xss_injection"],
+                concurrent_requests: 5,
+                max_requests: null,
+                endpoints: []
+            }
+        };
+
+        document.getElementById('jsonContent').value = JSON.stringify(template, null, 2);
+        switchMode('json');
+        showAlert('info', 'Quick security test template loaded. Customize and start!');
+    }
+
     // Download template
     function downloadTemplate() {
         const template = {
-            id: "example-001",
+            id: "test-001",
             name: "My Test Scenario",
             description: "Description of the test",
-            spec: {
-                type: "openapi",
-                data: {
-                    version: "3.0.1",
-                    content: "openapi: 3.0.0..."
-                }
-            },
             target: {
                 base_url: "https://api.example.com",
-                environment: "staging"
+                auth_token: null,
+                timeout_seconds: 30,
+                headers: null
             },
-            execution: {
-                concurrent_requests: 10,
-                requests_per_second: 100,
-                timeout_seconds: 30
-            },
-            phases: [],
-            tags: []
+            scenario: {
+                type: "load_testing",
+                pattern: {
+                    type: "constant",
+                    virtual_users: 10,
+                    requests_per_second: null
+                },
+                duration_seconds: 60,
+                endpoints: [
+                    {
+                        method: "GET",
+                        path: "/api/endpoint",
+                        body: null,
+                        weight: 1
+                    }
+                ],
+                think_time_ms: 1000
+            }
         };
 
         const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'template.json';
+        a.download = 'test-scenario-template.json';
         a.click();
         URL.revokeObjectURL(url);
     }
@@ -459,4 +1007,4 @@
         setInterval(refreshRuns, 10000); // Refresh every 10 seconds
     });
 </script>
-{% endblock %}
+{% endblock scripts %}

@@ -1,0 +1,58 @@
+{
+  "id": "step-capacity-test",
+  "name": "Step-wise Capacity Test",
+  "description": "Incrementally increase load by 25 users every 2 minutes to find breaking point",
+  "target": {
+    "base_url": "https://backend.example.com",
+    "auth_token": "Bearer prod-api-key-12345",
+    "timeout_seconds": 30,
+    "headers": [
+      ["Content-Type", "application/json"],
+      ["X-API-Version", "2.0"]
+    ]
+  },
+  "scenario": {
+    "type": "load_testing",
+    "pattern": {
+      "type": "step",
+      "start_users": 25,
+      "step_increment": 25,
+      "step_duration_seconds": 120,
+      "max_users": 250
+    },
+    "duration_seconds": 1200,
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/api/items",
+        "body": null,
+        "weight": 40
+      },
+      {
+        "method": "POST",
+        "path": "/api/items",
+        "body": "{\"name\": \"Item {{random_int_1_1000}}\", \"price\": {{random_int_10_1000}}}",
+        "weight": 20
+      },
+      {
+        "method": "GET",
+        "path": "/api/items/{{random_int_1_1000}}",
+        "body": null,
+        "weight": 25
+      },
+      {
+        "method": "PUT",
+        "path": "/api/items/{{random_int_1_1000}}",
+        "body": "{\"name\": \"Updated Item\", \"price\": {{random_int_10_1000}}}",
+        "weight": 10
+      },
+      {
+        "method": "DELETE",
+        "path": "/api/items/{{random_int_1_1000}}",
+        "body": null,
+        "weight": 5
+      }
+    ],
+    "think_time_ms": 1500
+  }
+}

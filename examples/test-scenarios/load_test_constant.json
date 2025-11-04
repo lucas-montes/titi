@@ -1,0 +1,50 @@
+{
+  "id": "constant-load-api-test",
+  "name": "Constant Load API Test",
+  "description": "Basic load test with constant 50 virtual users hitting various API endpoints",
+  "target": {
+    "base_url": "https://api.example.com",
+    "auth_token": "Bearer your-token-here",
+    "timeout_seconds": 30,
+    "headers": [
+      ["Content-Type", "application/json"],
+      ["Accept", "application/json"]
+    ]
+  },
+  "scenario": {
+    "type": "load_testing",
+    "pattern": {
+      "type": "constant",
+      "virtual_users": 50,
+      "requests_per_second": 100
+    },
+    "duration_seconds": 300,
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/api/v1/users",
+        "body": null,
+        "weight": 40
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/products",
+        "body": null,
+        "weight": 30
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/orders",
+        "body": "{\"product_id\": \"{{random_uuid}}\", \"quantity\": {{random_int_1_10}}}",
+        "weight": 20
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/orders/{{random_uuid}}",
+        "body": null,
+        "weight": 10
+      }
+    ],
+    "think_time_ms": 1000
+  }
+}

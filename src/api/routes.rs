@@ -15,7 +15,7 @@ use stefn::{
 use super::{
     auth::{self, PrivateClaims},
     docs::ApiDoc,
-    jobs,
+    test_routes,
 };
 
 pub fn routes(state: APIState) -> Router<APIState> {
@@ -32,10 +32,17 @@ pub fn routes(state: APIState) -> Router<APIState> {
 
 fn api_routes(state: APIState) -> Router<APIState> {
     Router::new()
-        .nest("/jobs", jobs::routes(state.clone()))
-        // .layer(from_fn_with_state(
-        //     state.clone(),
-        //     jwt_middleware::<PrivateClaims>,
-        // ))
+        // Public routes (no authentication required)
+        .nest("/test", test_routes::public_routes(state.clone()))
         .nest("/auth", auth::routes(state.clone()))
+        // Protected routes (authentication required)
+        .nest(
+            "/protected",
+            Router::new()
+                .nest("/test", test_routes::protected_routes(state.clone()))
+                .layer(from_fn_with_state(
+                    state.clone(),
+                    jwt_middleware::<PrivateClaims>,
+                ))
+        )
 }

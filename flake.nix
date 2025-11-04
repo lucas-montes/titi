@@ -33,6 +33,7 @@
             pkgs.sqlx-cli
             pkgs.stripe-cli
             pkgs.cargo-watch
+            pkgs.cargo-expand
           ];
         };
 

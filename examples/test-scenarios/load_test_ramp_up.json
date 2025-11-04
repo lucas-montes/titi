@@ -1,0 +1,50 @@
+{
+  "id": "ramp-up-stress-test",
+  "name": "Ramp Up Stress Test",
+  "description": "Gradually increase load from 10 to 200 users over 5 minutes to test system scalability",
+  "target": {
+    "base_url": "https://api.example.com",
+    "auth_token": null,
+    "timeout_seconds": 60,
+    "headers": [
+      ["User-Agent", "LoadTester/1.0"]
+    ]
+  },
+  "scenario": {
+    "type": "load_testing",
+    "pattern": {
+      "type": "ramp_up",
+      "start_users": 10,
+      "end_users": 200,
+      "ramp_duration_seconds": 300
+    },
+    "duration_seconds": 600,
+    "endpoints": [
+      {
+        "method": "GET",
+        "path": "/health",
+        "body": null,
+        "weight": 10
+      },
+      {
+        "method": "GET",
+        "path": "/api/v1/dashboard",
+        "body": null,
+        "weight": 50
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/search",
+        "body": "{\"query\": \"{{random_word}}\", \"page\": {{random_int_1_10}}}",
+        "weight": 30
+      },
+      {
+        "method": "PUT",
+        "path": "/api/v1/profile",
+        "body": "{\"name\": \"{{random_name}}\", \"email\": \"{{random_email}}\"}",
+        "weight": 10
+      }
+    ],
+    "think_time_ms": 2000
+  }
+}
