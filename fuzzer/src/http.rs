@@ -3,8 +3,120 @@
 //! This module provides HTTP client creation and error categorization.
 //! The actual request execution logic is in vuser.rs.
 
-use reqwest::Client as ReqwestClient;
-use std::time::Duration;
+use reqwest::{Client as ReqwestClient, StatusCode};
+
+use crate::{Configuration, algorithms::IpoG, planner::Planner};
+
+use std::time::{Duration, Instant};
+
+pub struct HttpPlanner{
+    config: Configuration,
+}
+
+impl From<Configuration> for HttpPlanner{
+    fn from(config: Configuration) -> Self {
+        Self{config}
+    }
+}
+
+
+
+impl Planner for HttpPlanner{
+    type Action = HttpAction;
+    type Algorithm = IpoG;
+
+    fn update(&mut self, _feedback: crate::planner::PlannerFeedback) {}
+}
+
+
+
+#[derive(Clone)]
+pub struct HttpAction {
+    client: ReqwestClient,
+    template: RequestTemplate,
+}
+
+impl HttpAction {
+    pub fn new(client: ReqwestClient, template: RequestTemplate) -> Self {
+        Self { client, template }
+    }
+}
+
+impl Action for HttpAction {
+    type Metrics = HttpMetrics;
+
+    async fn execute(&self, vuser_id: u16) -> Self::Metrics {
+        let client = self.client.clone();
+        let template = self.template.clone();
+
+        let start = Instant::now();
+
+        let request_builder = template.to_request_builder(&client);
+        let result = request_builder.send().await;
+        let elapsed = start.elapsed();
+
+        match result {
+            Ok(response) => {
+                HttpMetrics {
+                    vuser_id,
+                    timestamp: start,
+                    duration: elapsed,
+                    status_code: Some(response.status()),
+                    error: None,
+                }
+            }
+            Err(err) => HttpMetrics {
+                vuser_id,
+                timestamp: start,
+                duration: elapsed,
+                status_code: None,
+                error: Some(RequestError::from(err)),
+            },
+        }
+    }
+}
+
+/// Metrics from an HTTP request
+#[derive(Debug, Clone)]
+pub struct HttpMetrics {
+    vuser_id: u16,
+    timestamp: Instant,
+    duration: std::time::Duration,
+    status_code: Option<StatusCode>,
+    error: Option<RequestError>,
+}
+
+impl ActionMetrics for HttpMetrics {
+    fn vuser_id(&self) -> u16 {
+        self.vuser_id
+    }
+
+    fn timestamp(&self) -> Instant {
+        self.timestamp
+    }
+
+    fn duration(&self) -> std::time::Duration {
+        self.duration
+    }
+
+    fn is_success(&self) -> bool {
+        self.error.is_none() && self.status_code.is_some_and(|c| c.is_success())
+    }
+}
+
+impl HttpMetrics {
+    /// Get the HTTP status code (if available)
+    pub fn status_code(&self) -> Option<u16> {
+        self.status_code.map(|c| c.as_u16())
+    }
+
+    /// Get the categorized error (if any)
+    pub fn error(&self) -> Option<RequestError> {
+        self.error
+    }
+}
+
+
 
 /// Categorized request errors (zero-allocation)
 ///

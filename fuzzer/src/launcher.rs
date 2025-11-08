@@ -1,5 +1,6 @@
 use crate::config::Configuration;
 use crate::executor::ExecutorSnapshot;
+use crate::http::HttpPlanner;
 use crate::planner::TestPlanner;
 use crate::scheduler::Scheduler;
 use crate::vuser::Action;
@@ -103,12 +104,14 @@ impl Launcher {
     }
 
     /// Create and spawn a new job
-    async fn create_job(&mut self, _config: Configuration) -> Result<u64, String> {
+    async fn create_job(&mut self, config: Configuration) -> Result<u64, String> {
         let job_id = JobId::new();
 
         // TODO: Spawn actual job based on planner type
         // For now, just track that we would spawn it
-        tracing::info!("Would create job {}", job_id);
+        tracing::debug!("Would create job {}", job_id);
+
+        let planner : HttpPlanner = config.into();
 
         // Store empty metrics for now
         self.metrics.insert(job_id.as_u64(), todo!("Create empty snapshot"));

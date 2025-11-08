@@ -1,5 +1,4 @@
 mod config;
-mod client;
 mod metrics;
 mod planner;
 mod scheduler;
@@ -7,6 +6,8 @@ mod vuser;
 mod ratelimiter;
 mod executor;
 mod launcher;
+mod http;
+mod algorithms;
 
 pub mod api;
 
@@ -14,6 +15,8 @@ pub use config::Configuration;
 pub use executor::ExecutorSnapshot;
 pub use launcher::{Launcher, LauncherCommand};
 pub use api::{FuzzerService, routes};
+
+use crate::vuser::Action;
 
 // We have 5 layers for the fuzzer
 // the first layer is the configuation that we receive from the user. This can be in asy shape, logs, json, yaml, manually entered, etc...

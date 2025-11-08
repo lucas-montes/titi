@@ -6,9 +6,6 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use tokio::sync::mpsc;
 
 
-use fuzzer::Launcher;
-use fuzzer::api::{routes, FuzzerService};
-
 #[tokio::main]
 async fn main() {
     tracing_subscriber::registry()

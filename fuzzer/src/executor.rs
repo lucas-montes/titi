@@ -1,6 +1,4 @@
 use crate::metrics::MetricsCollector;
-use crate::planner::{CaseIterator, ErrorCategory, PlannerFeedback, TestCase, TestScenario};
-use crate::vuser::{Action, ActionMetrics};
 use serde::Serialize;
 use std::collections::HashMap;
 use std::time::{Duration, Instant};

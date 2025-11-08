@@ -3541,7 +3541,7 @@ dependencies = [
 [[package]]
 name = "stefn"
 version = "0.4.1"
-source = "git+file:///home/lucas/Projects/stefn?branch=master#67cc9df097ec50c7d1d6a51bd40f20e8f42d1d32"
+source = "git+https://github.com/lucas-montes/stefn#67cc9df097ec50c7d1d6a51bd40f20e8f42d1d32"
 dependencies = [
  "argon2",
  "askama",
@@ -3590,7 +3590,7 @@ dependencies = [
 [[package]]
 name = "stefn-macros"
 version = "0.1.0"
-source = "git+file:///home/lucas/Projects/stefn?branch=master#67cc9df097ec50c7d1d6a51bd40f20e8f42d1d32"
+source = "git+https://github.com/lucas-montes/stefn#67cc9df097ec50c7d1d6a51bd40f20e8f42d1d32"
 dependencies = [
  "proc-macro2",
  "quote",
