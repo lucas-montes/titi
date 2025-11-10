@@ -8,7 +8,7 @@ use axum::{
 };
 
 use chrono::{DateTime, Utc};
-use fuzzer::Configuration;
+//use fuzzer::Configuration;
 use serde::{Deserialize, Serialize};
 use stefn::{
     askama::Template,
@@ -410,6 +410,14 @@ async fn api_performance_data() -> impl IntoResponse {
     };
 
     Json(data)
+}
+
+#[derive(Serialize, Deserialize)]
+struct Configuration {
+    target_url: String,
+    duration_seconds: u64,
+    concurrent_users: u32,
+    request_rate: u32,
 }
 
 // Fuzzer API Integration

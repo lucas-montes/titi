@@ -3,7 +3,7 @@ use tokio::sync::mpsc;
 use std::env;
 use std::path::PathBuf;
 
-use fuzzer::{Launcher, LauncherCommand, Configuration};
+use fuzzer::{configuration::Configuration};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -15,15 +15,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .with(tracing_subscriber::fmt::layer())
         .init();
-
-    // Setup launcher
-    let (launcher_tx, launcher_rx) = mpsc::channel(100);
-
-    let launcher = Launcher::new(launcher_rx);
-    let launcher_handle = tokio::spawn(async move {
-        tracing::debug!("Starting fuzzer launcher...");
-        launcher.run().await;
-    });
 
     // Parse command line arguments
     // let args: Vec<String> = env::args().collect();
@@ -44,42 +35,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let config: Configuration = serde_json::from_str(&config_content)?;
 
     tracing::debug!(?config,"Configuration loaded successfully");
-
-    // Send create job command to launcher
-    let (response_tx, mut response_rx) = mpsc::channel(1);
-    launcher_tx
-        .send(LauncherCommand::Create {
-            config,
-            response: response_tx,
-        })
-        .await?;
-
-    // Wait for job creation response
-    match response_rx.recv().await {
-        Some(Ok(job_id)) => {
-            tracing::debug!("✅ Job created successfully with ID: {}", job_id);
-
-            // TODO: Keep running and monitor the job
-            // For now, just wait a bit and then shutdown
-            tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
-
-            tracing::debug!("Shutting down...");
-        }
-        Some(Err(e)) => {
-            tracing::error!("❌ Failed to create job: {}", e);
-            return Err(e.into());
-        }
-        None => {
-            tracing::error!("❌ Launcher closed unexpectedly");
-            return Err("Launcher closed".into());
-        }
-    }
-
-    // Close the launcher command channel
-    drop(launcher_tx);
-
-    // Wait for launcher to finish
-    launcher_handle.await?;
 
     Ok(())
 }
