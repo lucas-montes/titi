@@ -13,35 +13,6 @@
 // The fourth layer is the executor that will take care of running the cases, spawning virtual users, rate limiting, etc...
 // The fifth layer is the virtual users that will execute the requests and send the metrics back to the executor
 
-// Configuration
-//   ↓
-// Planner (generates Plans)
-//   ↓
-// Plan (complete blueprint: endpoints, ranges, load_profile, assertions, etc.)
-//   ↓
-// Scheduler (orchestrates execution)
-//   ├── Creates Executors (could be local or remote)
-//   ├── Distributes Plans across Executors
-//   ├── Collects metrics from all Executors
-//   └── Sends aggregated metrics to MetricsAggregator
-
-//   ↓ (per Executor)
-// Executor (runs locally or on remote machine)
-//   ├── Spawns VUsers based on Plan's LoadProfile
-//   ├── Manages VUser lifecycle (ramp-up, steady state, ramp-down)
-//   ├── Collects RequestMetrics from VUsers
-//   └── Sends metrics back to Scheduler
-
-//   ↓ (per VUser)
-// VUser (lightweight async task)
-//   ├── Generates requests from Plan
-//   ├── Executes HTTP/gRPC requests
-//   ├── Validates assertions
-//   └── Returns RequestMetrics
-
-//   ↓
-// MetricsAggregator (in-memory or persistent)
-//   └── Exports JSON snapshot
 
 mod ratelimiter;
 use std::sync::mpsc;
@@ -52,14 +23,36 @@ mod configuration {
 
     /// Configuration received from the user specifiying endpoint, schema, auth, etc...
     pub struct Configuration {
-        schema: PathBuf,
+        schema: Schema,
         tests: Vec<Test>, // TODO: add more fields
+    }
+
+    enum Schema{
+        OpenAPI(PathBuf),
+        GraphQL(PathBuf),
+        Custom(PathBuf),
     }
 
     struct Test {
         endpoint: String,
-        // TODO: qdd more fields
+        objectives: Vec<Objective>,
     }
+
+    enum Objective {
+        Security(Security),
+        Reliability(Reliability),
+        Performance(Performance),
+    }
+    struct Security {
+        // Security specific fields
+    }
+    struct Reliability {
+        // Reliability specific fields
+    }
+    struct Performance {
+        // Performance specific fields
+    }
+
 }
 
 mod algorithms {
@@ -75,9 +68,11 @@ mod planner {
         fn plan(&mut self);
     }
 
+    struct PlanId(String);
+
     // Plan is the blueprint that contains ALL execution details
-    struct Plan {
-        id: String,
+    pub struct Plan {
+        id: PlanId,
         seed: u64,
         endpoint: Endpoint,
         test_purpose: TestPurpose,
@@ -119,7 +114,9 @@ mod metrics {
 mod scheduler {
     /// Scheduler that takes Plans from the Planner and produces Cases to be executed. It collects metrics from one or more Executors and sends them to a MetricsAggregator.
 
-    struct Scheduler{}
+    struct Scheduler{
+        rx
+    }
 }
 
 mod executor {
